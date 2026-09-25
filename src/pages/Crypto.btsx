@@ -111,7 +111,7 @@ div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
       | #{market.coins.length > 0 ? `Showing saved prices. ${market.error}` : market.error}
   switch tab
     case 'market'
-      Shell(title='Top 10 by market cap' className=' infinite-lines' icon='trending' actions={market.usdPhp ? createElement('span', { className: 'font-mono text-[11px] text-muted-foreground' }, `USD/PHP ${market.usdPhp.toFixed(2)}`) : undefined})
+      Shell(title='Top 10 by market cap' className=' infinite-lines' icon='trending' actions={market.usdPhp ? createElement('span', { className: 'meta' }, `USD/PHP ${market.usdPhp.toFixed(2)}`) : undefined})
         Panel
           if market.coins.length > 0
             MarketTable(coins={market.coins.slice(0, 10)} usdPhp={market.usdPhp})

@@ -5,8 +5,26 @@ Insurance agent and manager dashboard built with [Beast](https://beast-docs-adv.
 ```bash
 bun install
 bun run dev        # local dev server
-bun run check      # type-check every .btsx/.ts file, then build
+bun run check      # type-check every .btsx/.ts file and the Worker, then build
 ```
+
+Copy `.env.example` to `.env` and set `CMC_API_KEY` for live crypto prices.
+
+## Deploy (Cloudflare Workers)
+
+The app ships as one Worker (`wrangler.jsonc`, `worker/index.ts`): the built `dist/` is served as static assets
+with single-page-app fallback, and the Worker only runs for `/api/*`, where `/api/cmc/*` proxies CoinMarketCap
+with the `CMC_API_KEY` secret (allow-listed endpoints, edge-cached for 5 minutes).
+
+```bash
+bunx wrangler login                     # once
+bunx wrangler secret put CMC_API_KEY    # once, and whenever the key rotates
+bun run cf:deploy                       # typecheck, build, wrangler deploy
+```
+
+- `bun run cf:dev` builds and runs the production Worker locally on :8787 (secrets from `.dev.vars`, gitignored).
+- `bun run cf:types` regenerates `worker/worker-configuration.d.ts` after changing `wrangler.jsonc`.
+- All app data (book, notes, contacts, wallets, portfolio) lives in each browser's storage; nothing is stored server-side yet.
 
 ## Screens
 

@@ -1,6 +1,6 @@
 /**
- * Live prices from CoinMarketCap through the dev server's `/api/cmc` proxy
- * (see rsbuild.config.ts), which holds the API key.
+ * Live prices from CoinMarketCap through the `/api/cmc` proxy, which holds the
+ * API key: rsbuild.config.ts in development, worker/index.ts on Cloudflare.
  *
  * The free plan allows one quote currency per call, so prices come in USD and a
  * separate USD→PHP conversion gives the peso values. One refresh costs 2 credits;
@@ -71,7 +71,7 @@ async function cmc<T>(path: string): Promise<T> {
   const response = await fetch(`/api/cmc${path}`)
   const body = (await response.json().catch(() => null)) as { status?: CmcStatus; data?: T } | null
   if (!response.ok || !body || body.status?.error_code) {
-    const message = body?.status?.error_message ?? (response.status === 404 ? 'Price proxy not running. Set CMC_API_KEY in .env and restart the dev server.' : `CoinMarketCap error ${response.status}`)
+    const message = body?.status?.error_message ?? (response.status === 404 ? 'Price proxy not found. Run the app with `bun run dev` or the Cloudflare Worker.' : `CoinMarketCap error ${response.status}`)
     throw new Error(message)
   }
   return body.data as T
