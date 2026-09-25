@@ -1,0 +1,55 @@
+import { Icon } from '@/lib/icons'
+import { peso } from '@/lib/insurance/format'
+import type { PremiumBreakdown } from '@/lib/insurance/types'
+
+module
+  export interface PremiumSummaryProps {
+    premium: PremiumBreakdown
+    /** Shown above the total, e.g. the product name. */
+    caption?: string
+  }
+
+// The live quote: headline total, coverage lines, taxes, and anything blocking.
+props { premium, caption }: PremiumSummaryProps
+setup const ready = premium.issues.length === 0 && premium.totalAmountDue > 0
+
+div(className='flex flex-col gap-1.5')
+  div(className='panel p-5')
+    div(className='flex items-center justify-between gap-2')
+      p(className='eyebrow') Total amount due
+      if caption
+        span(className='eyebrow') #{caption}
+    p(className='numeral mt-2 text-[34px] font-medium leading-none') #{peso(premium.totalAmountDue)}
+    div(className='mt-3 flex items-center gap-2')
+      span(className={ready ? 'size-1.5 rounded-full bg-success' : 'size-1.5 rounded-full bg-warning pulse-dot'})
+      span(className={ready ? 'mono-caps text-[10.5px] text-success' : 'mono-caps text-[10.5px] text-warning'}) #{ready ? 'Ready to save' : 'Indicative'}
+  div(className='panel p-5')
+    p(className='eyebrow mb-3') Coverage
+    each line in premium.lines key line.label
+      div(className='flex items-baseline justify-between gap-3 py-1.5 text-sm')
+        span(className='min-w-0')
+          span #{line.label}
+          if line.note
+            span(className='ml-1.5 font-mono text-[11px] text-muted-foreground') #{line.note}
+        span(className='shrink-0 font-mono text-[13px] numeral') #{peso(line.amount)}
+    empty
+      p(className='text-sm text-muted-foreground') Fill in the risk details to price the cover.
+    div(className='my-3 h-px bg-border')
+    div(className='flex items-baseline justify-between py-1 text-sm')
+      span(className='text-muted-foreground') Basic premium
+      span(className='font-mono text-[13px] numeral') #{peso(premium.basicPremium)}
+    each tax in premium.taxes key tax.label
+      div(className='flex items-baseline justify-between py-1 text-sm')
+        span(className='text-muted-foreground')
+          | #{tax.label}
+          if tax.note
+            span(className='ml-1.5 font-mono text-[11px]') #{tax.note}
+        span(className='font-mono text-[13px] numeral') #{peso(tax.amount)}
+  if premium.issues.length > 0
+    div(className='panel p-5')
+      p(className='eyebrow mb-2 text-warning') #{`${premium.issues.length} to resolve`}
+      ul(className='flex flex-col gap-1.5')
+        each issue in premium.issues key issue
+          li(className='flex items-start gap-2 text-sm text-muted-foreground')
+            Icon(name='alert' size={14} className='m-0 mt-0.5 shrink-0 text-warning')
+            span #{issue}

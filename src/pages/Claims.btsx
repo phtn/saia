@@ -1,0 +1,108 @@
+import { createElement, useState } from 'octane'
+import { useNavigate } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import Segmented from '@/components/kit/Segmented.btsx'
+import StatTile from '@/components/kit/StatTile.btsx'
+import ClaimRow from '@/components/insurance/ClaimRow.btsx'
+import Chip from '@/components/kit/Chip.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import { useStore, setClaimStatus } from '@/lib/insurance/store'
+import { CLAIM_STATUS } from '@/lib/insurance/status'
+import { claimLoss, totalAssessed, totalClaimed, CLAIM_REQUIREMENTS } from '@/lib/insurance/claims'
+import { peso, pesoCompact, shortDate } from '@/lib/insurance/format'
+import type { ClaimRecord, ClaimStatus } from '@/lib/insurance/types'
+
+module
+  type Filter = 'open' | 'settled' | 'all'
+
+  const OPEN: readonly ClaimStatus[] = ['Filed', 'Under Review', 'Approved']
+
+  const NEXT: Partial<Record<ClaimStatus, { status: ClaimStatus; label: string }[]>> = {
+    Filed: [{ status: 'Under Review', label: 'Start review' }],
+    'Under Review': [{ status: 'Approved', label: 'Approve' }, { status: 'Denied', label: 'Deny' }],
+    Approved: [{ status: 'Paid', label: 'Mark paid' }]
+  }
+
+component ClaimDetail
+  props { claim, onClose }: { claim: ClaimRecord; onClose: () => void }
+  setup
+    const meta = CLAIM_STATUS[claim.status]
+    const actions = NEXT[claim.status] ?? []
+  div(className='flex flex-col gap-1.5')
+    div(className='panel p-5')
+      div(className='flex items-start justify-between gap-3')
+        div(className='min-w-0')
+          div(className='flex flex-wrap items-center gap-2')
+            h3(className='truncate text-lg font-medium tracking-tight') #{claim.claimant}
+            Chip(label={meta.label} tone={meta.tone} dot pulse={meta.pulse})
+          p(className='mt-1 font-mono text-xs text-muted-foreground') #{`${claim.claimNumber} · ${claim.policyNumber || 'no policy no.'}`}
+        button(type='button' onClick={onClose} aria-label='Close details' className='grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-surface hover:text-foreground')
+          Icon(name='x' size={16} className='m-0')
+      div(className='mt-4 grid grid-cols-2 gap-1.5')
+        StatTile(label='Claimed' value={pesoCompact(totalClaimed(claim.items))} caption={`${claim.items.length} item(s)`})
+        StatTile(label='Assessed' value={totalAssessed(claim.items) > 0 ? pesoCompact(totalAssessed(claim.items)) : '—'} caption={claim.status === 'Paid' ? 'Paid out' : 'Adjuster'} captionTone={claim.status === 'Paid' ? 'success' : 'neutral'})
+      p(className='mt-4 text-sm') #{claim.description}
+      p(className='mono-caps mt-2 text-[10.5px] text-muted-foreground') #{`${claim.incidentType} · ${shortDate(claim.incidentDate)} · ${claim.location || 'no location'}`}
+      if actions.length > 0
+        div(className='mt-4 flex flex-wrap gap-2')
+          each action, index in actions key action.status
+            CtaButton(label={action.label} icon={index === 0 ? 'chevrons-right' : undefined} variant={index === 0 ? 'accent' : 'ghost'} size='sm' onClick={() => setClaimStatus(claim.id, action.status)})
+    div(className='panel p-5')
+      p(className='eyebrow mb-2') Loss items
+      each item in claim.items key item.description
+        div(className='flex items-baseline justify-between gap-3 border-b border-border py-2 text-sm last:border-b-0')
+          span(className='min-w-0 truncate') #{item.description}
+          span(className='shrink-0 font-mono text-[13px] numeral') #{peso(item.amountClaimed)}
+    div(className='panel p-5')
+      p(className='eyebrow mb-2') Requirements
+      ul(className='flex flex-col gap-2')
+        each requirement in CLAIM_REQUIREMENTS[claim.product] key requirement
+          li(className='flex items-center gap-2 text-sm text-muted-foreground')
+            Icon(name='file-check' size={14} className='m-0 shrink-0')
+            | #{requirement}
+
+component NewClaimAction
+  props { onClick }: { onClick: () => void }
+  CtaButton(label='File a claim' icon='plus' variant='accent' size='md' onClick={onClick})
+
+setup
+  const { claims } = useStore()
+  const navigate = useNavigate()
+  const [filter, setFilter] = useState<Filter>('open')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const visible = claims.filter((claim) => filter === 'all' || (filter === 'open' ? OPEN.includes(claim.status) : !OPEN.includes(claim.status)))
+  const selected = claims.find((claim) => claim.id === selectedId) ?? null
+  const openTotal = claims.filter((claim) => OPEN.includes(claim.status)).reduce((sum, claim) => sum + claimLoss(claim), 0)
+  const paid = claims.filter((claim) => claim.status === 'Paid')
+  const options = [
+    { value: 'open', label: 'Open', count: claims.filter((claim) => OPEN.includes(claim.status)).length },
+    { value: 'settled', label: 'Settled', count: claims.filter((claim) => !OPEN.includes(claim.status)).length },
+    { value: 'all', label: 'All', count: claims.length }
+  ]
+  const action = createElement(NewClaimAction, { onClick: () => navigate({ to: '/claims/new', search: {} }) })
+
+div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Claims' title='Claims desk' description='File first notice of loss, then move each claim through review to payment.' actions={action})
+  div(className={cn('grid grid-cols-1 items-start gap-4', selected && 'xl:grid-cols-[minmax(0,1fr)_420px]')})
+    Shell
+      div(className='panel p-5')
+        div(className='grid grid-cols-2 gap-1.5 md:grid-cols-4')
+          StatTile(label='Open' value={options[0].count} caption='In progress' captionTone='warning')
+          StatTile(label='Exposure' value={pesoCompact(openTotal)} caption='Open claimed')
+          StatTile(label='Paid' value={paid.length} caption={pesoCompact(paid.reduce((sum, claim) => sum + claimLoss(claim), 0))} captionTone='success')
+          StatTile(label='Denied' value={claims.filter((claim) => claim.status === 'Denied').length} caption='All time')
+      div(className='panel p-2')
+        Segmented(label='Filter claims' options={options} value={filter} onChange={(value) => setFilter(value === 'settled' ? 'settled' : value === 'all' ? 'all' : 'open')})
+      Panel(title='Claims' count={visible.length} caption='Newest first')
+        each claim in visible key claim.id
+          ClaimRow(claim={claim} onClick={() => setSelectedId(claim.id === selectedId ? null : claim.id)})
+        empty
+          p(className='py-10 text-center text-sm text-muted-foreground') No claims here.
+    if selected
+      div(className='xl:sticky xl:top-4')
+        Shell(title='Claim' icon='claim')
+          ClaimDetail(key={selected.id} claim={selected} onClose={() => setSelectedId(null)})

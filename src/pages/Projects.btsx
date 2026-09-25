@@ -1,4 +1,0 @@
-import PagePlaceholder from "@/components/PagePlaceholder.btsx"
-
-props {}:{}
-PagePlaceholder(href="/projects")

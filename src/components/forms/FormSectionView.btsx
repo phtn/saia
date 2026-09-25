@@ -1,0 +1,27 @@
+import FieldInput from './FieldInput.btsx'
+import type { FieldValue, FormSection, FormValues } from '@/lib/insurance/types'
+
+module
+  export interface FormSectionViewProps {
+    section: FormSection
+    values: FormValues
+    onChange: (key: string, value: FieldValue) => void
+    errors?: Record<string, string>
+    /** Two-digit index shown before the title, as in "01 · SOURCE". */
+    index?: number
+  }
+
+props { section, values, onChange, errors = {}, index }: FormSectionViewProps
+
+fieldset(className='flex flex-col gap-4')
+  legend(className='mb-4 flex w-full items-baseline justify-between gap-3')
+    span(className='eyebrow')
+      if index !== undefined
+        | #{`${String(index).padStart(2, '0')} · ${section.title}`}
+      else
+        | #{section.title}
+    if section.description
+      span(className='hidden text-xs text-muted-foreground sm:inline') #{section.description}
+  div(className='grid grid-cols-1 gap-4 sm:grid-cols-2')
+    each field in section.fields key field.key
+      FieldInput(field={field} value={values[field.key]} onChange={onChange} error={errors[field.key]})

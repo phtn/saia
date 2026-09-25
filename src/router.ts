@@ -1,14 +1,26 @@
 import { createRootRoute, createRoute, createRouter } from '@octanejs/tanstack-router'
 import App from './App.btsx'
-import { Home, Documents, Projects } from './pages'
+import { Overview, QuotePicker, QuoteWizard, MobileQuote, Policies, Claims, ClaimNew, Analytics, Tasks } from './pages'
 
 const rootRoute = createRootRoute({ component: App })
 
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: Home })
-const formRoute = createRoute({ getParentRoute: () => rootRoute, path: '/documents', component: Documents })
-const streamingRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projects', component: Projects })
 
-const routeTree = rootRoute.addChildren([indexRoute, formRoute, streamingRoute])
+const routeTree = rootRoute.addChildren([
+  createRoute({ getParentRoute: () => rootRoute, path: '/', component: Overview }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/quote', component: QuotePicker }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/quote/$product', component: QuoteWizard }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/mobile', component: MobileQuote }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/policies', component: Policies }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/claims', component: Claims }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/claims/new',
+    component: ClaimNew,
+    validateSearch: (search: Record<string, unknown>): { quote?: string } => (typeof search.quote === 'string' ? { quote: search.quote } : {})
+  }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/analytics', component: Analytics }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/tasks', component: Tasks })
+])
 
 export const router = createRouter({ routeTree })
 

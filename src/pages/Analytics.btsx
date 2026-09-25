@@ -1,0 +1,91 @@
+import { useEffect, useState } from 'octane'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import StatTile from '@/components/kit/StatTile.btsx'
+import RingGauge from '@/components/kit/RingGauge.btsx'
+import BarChart from '@/components/kit/BarChart.btsx'
+import HBars from '@/components/kit/HBars.btsx'
+import Segmented from '@/components/kit/Segmented.btsx'
+import { useStore } from '@/lib/insurance/store'
+import { bookKpis, motorBook, productMix, type MotorBook, type MotorScheduleRow } from '@/lib/insurance/analytics'
+import { peso, percent, pesoCompact } from '@/lib/insurance/format'
+
+module
+  type View = 'book' | 'motor'
+
+setup
+  const { quotes, claims } = useStore()
+  const [view, setView] = useState<View>('book')
+  const [motor, setMotor] = useState<MotorBook | null>(null)
+  const [motorError, setMotorError] = useState('')
+  const kpis = bookKpis(quotes, claims)
+  const mix = productMix(quotes)
+
+  // 850 KB of imported schedules: load only when the motor view is opened.
+  useEffect(() => {
+    if (view !== 'motor' || motor !== null) return
+    let cancelled = false
+    import('@/lib/entities/MotorPolicySchedule.json')
+      .then((module) => {
+        if (!cancelled) setMotor(motorBook(module.default as MotorScheduleRow[]))
+      })
+      .catch(() => {
+        if (!cancelled) setMotorError('The motor schedules could not be loaded.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [view])
+
+div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Manager' title='Analytics' description='Production, conversion and losses across the book.')
+  div(className='mb-4 max-w-md')
+    Segmented(label='Analytics view' options={[{ value: 'book', label: 'Agency book', count: quotes.length }, { value: 'motor', label: 'Motor schedules', count: motor?.policies ?? 200 }]} value={view} onChange={(value) => setView(value === 'motor' ? 'motor' : 'book')})
+  if view === 'book'
+    div(className='grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]')
+      Shell(title='Production' icon='trending')
+        div(className='panel p-5')
+          div(className='flex flex-wrap items-center gap-5')
+            RingGauge(value={kpis.conversion ?? 0} label={percent(kpis.conversion).replace('.0%', '%')})
+            div
+              p(className='eyebrow') Quote to policy
+              p(className='numeral mt-1.5 text-[40px] font-medium leading-none') #{pesoCompact(kpis.writtenPremium)}
+              p(className='mono-caps mt-2 text-[10.5px] text-muted-foreground') #{`${kpis.policies} policies from ${kpis.quotes} quotes`}
+          div(className='mt-5 grid grid-cols-2 gap-1.5 lg:grid-cols-4')
+            StatTile(label='In force' value={kpis.inForce} caption='Policies')
+            StatTile(label='Pending' value={pesoCompact(kpis.pendingPremium)} caption='Awaiting issue' captionTone='warning')
+            StatTile(label='Loss ratio' value={percent(kpis.lossRatio)} caption='Losses ÷ basic' captionTone={kpis.lossRatio !== null && kpis.lossRatio > 0.6 ? 'danger' : 'success'})
+            StatTile(label='Claims paid' value={pesoCompact(kpis.claimsPaid)} caption={`${kpis.claimsOpen} open`})
+        Panel(title='Premium by product' count={mix.length} caption='Issued only')
+          BarChart(label='Written premium by product' data={mix.map((row) => ({ label: row.label.replace(' Insurance', '').replace('Car ', ''), value: row.premium, display: pesoCompact(row.premium) }))})
+      Shell(title='Conversion by product' icon='analytics')
+        div(className='panel p-5')
+          HBars(label='Quotes converted to policies by product' data={mix.map((row) => ({ label: row.label, value: row.quotes > 0 ? row.policies / row.quotes : 0, display: `${row.policies} / ${row.quotes} · ${percent(row.quotes > 0 ? row.policies / row.quotes : null)}` }))})
+  elseif motor
+    div(className='grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]')
+      Shell(title='Motor schedules' icon='car')
+        div(className='panel p-5')
+          p(className='eyebrow') Total amount due
+          div(className='mt-1.5 flex items-baseline gap-2')
+            span(className='numeral text-[40px] font-medium leading-none') #{pesoCompact(motor.premium)}
+            span(className='text-sm text-muted-foreground') #{`/ ${motor.policies} policies`}
+          div(className='mt-5 grid grid-cols-2 gap-1.5 lg:grid-cols-4')
+            StatTile(label='Basic' value={pesoCompact(motor.basicPremium)} caption='Before tax')
+            StatTile(label='Taxes' value={pesoCompact(motor.taxes)} caption='DST · VAT · LGT')
+            StatTile(label='Average' value={pesoCompact(motor.avgPremium)} caption='Per policy')
+            StatTile(label='Expiring' value={motor.expiringSoon} caption='Next 60 days' captionTone={motor.expiringSoon > 0 ? 'warning' : 'neutral'})
+        Panel(title='Issued by month' count={motor.monthly.length} caption='Total amount due')
+          BarChart(label='Motor premium issued per month' data={motor.monthly.map((point) => ({ label: point.label, value: point.premium, display: `${pesoCompact(point.premium)} · ${point.policies}` }))})
+      div(className='flex flex-col gap-4')
+        Shell(title='Premium bands' icon='wallet')
+          div(className='panel p-5')
+            HBars(label='Policies by total premium' data={motor.premiumBands.map((band) => ({ label: band.label, value: band.policies, display: `${band.policies} policies` }))})
+        Shell(title='Issuance by weekday' icon='calendar')
+          div(className='panel p-5')
+            BarChart(label='Policies issued by weekday' height={120} data={motor.weekday.map((day) => ({ label: day.day, value: day.policies, display: String(day.policies) }))})
+        p(className='px-2 text-xs text-muted-foreground') #{`Source: lib/entities/MotorPolicySchedule.json · ${peso(motor.premium)}`}
+  elseif motorError
+    p(className='panel p-8 text-center text-sm text-destructive') #{motorError}
+  else
+    p(className='panel p-8 text-center text-sm text-muted-foreground') Loading motor schedules…

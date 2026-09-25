@@ -14,51 +14,23 @@ export type NavGroup = {
   title: string
   items: NavItem[]
 }
+
 export const navGroups: NavGroup[] = [
   {
     title: 'Workspace',
     items: [
-      {
-        href: '/',
-        icon: 'new-folder',
-        label: 'New',
-        title: 'New',
-        description: 'New Folder',
-        value: '00',
-        tags: ['create', 'new file', 'new folder']
-      },
-      {
-        href: '/documents',
-        icon: 'folder',
-        label: 'Documents',
-        title: 'Docs',
-        description: 'My Documents',
-        value: '02',
-        tags: ['docs', 'files']
-      },
-      {
-        href: '/projects',
-        icon: 'account',
-        label: 'Projects',
-        title: 'Projects',
-        description: 'My Projects',
-        value: '08',
-        tags: ['projects']
-      }
+      { href: '/', icon: 'dashboard', label: 'Overview', title: 'Overview', description: 'Your book at a glance', value: '', tags: ['home', 'dashboard', 'overview'] },
+      { href: '/quote', icon: 'quote', label: 'New quote', title: 'New quote', description: 'Quote any product', value: '', tags: ['quote', 'new'] },
+      { href: '/mobile', icon: 'smartphone', label: 'Mobile', title: 'Mobile insurance', description: 'Scan IMEI and quote a phone', value: '', tags: ['cellphone', 'imei', 'device'] },
+      { href: '/policies', icon: 'policy', label: 'Policies', title: 'Policies', description: 'Quotes and policies in your book', value: '', tags: ['policies', 'quotes'] },
+      { href: '/claims', icon: 'claim', label: 'Claims', title: 'Claims', description: 'File and track claims', value: '', tags: ['claims'] }
     ]
   },
   {
-    title: 'Resources',
+    title: 'Manager',
     items: [
-      {
-        href: 'https://beast-docs-adv.beastjs.workers.dev',
-        icon: 'beast',
-        label: 'beast-tsrx',
-        title: '',
-        description: '',
-        value: '↗',
-        tags: ['']
-      }
+      { href: '/analytics', icon: 'analytics', label: 'Analytics', title: 'Analytics', description: 'Production and motor book', value: '', tags: ['analytics', 'reports'] },
+      { href: '/tasks', icon: 'calendar', label: 'Tasks', title: 'Tasks', description: 'Follow-ups and reminders', value: '', tags: ['tasks', 'reminders'] }
     ]
   }
 ]

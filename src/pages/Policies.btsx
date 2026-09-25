@@ -1,0 +1,146 @@
+import { createElement, useState } from 'octane'
+import { useNavigate } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import Segmented from '@/components/kit/Segmented.btsx'
+import SegmentBar from '@/components/kit/SegmentBar.btsx'
+import StatTile from '@/components/kit/StatTile.btsx'
+import Chip from '@/components/kit/Chip.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import QuoteRow from '@/components/insurance/QuoteRow.btsx'
+import { useStore, setQuoteStatus, deleteQuote } from '@/lib/insurance/store'
+import { PRODUCTS, productFields } from '@/lib/insurance/products'
+import { POLICY_STATUS, type Tone } from '@/lib/insurance/status'
+import { peso, shortDate } from '@/lib/insurance/format'
+import ChannelLinks from '@/components/insurance/ChannelLinks.btsx'
+import { downloadText, quotesToCsv } from '@/lib/insurance/export'
+import type { PolicyStatus, QuoteRecord } from '@/lib/insurance/types'
+
+module
+  type Filter = 'all' | 'quotes' | 'pending' | 'inforce' | 'closed'
+
+  const FILTERS: Record<Filter, readonly PolicyStatus[]> = {
+    all: ['Quote', 'Pending', 'Verified', 'Active', 'Expired', 'Rejected', 'Claimed', 'Cancelled'],
+    quotes: ['Quote'],
+    pending: ['Pending'],
+    inforce: ['Verified', 'Active', 'Claimed'],
+    closed: ['Expired', 'Rejected', 'Cancelled']
+  }
+
+  const TONE_COLORS: Record<Tone, string> = {
+    neutral: 'var(--neutral-dot)', warning: 'var(--warning)', info: 'var(--info)', success: 'var(--success)', danger: 'var(--destructive)', accent: 'var(--accent-brand)'
+  }
+
+  /** The next step of the quote → policy workflow, if any. */
+  const NEXT: Partial<Record<PolicyStatus, { status: PolicyStatus; label: string }>> = {
+    Quote: { status: 'Pending', label: 'Submit for issuance' },
+    Pending: { status: 'Verified', label: 'Mark verified' },
+    Verified: { status: 'Active', label: 'Activate policy' },
+    Expired: { status: 'Quote', label: 'Re-quote renewal' }
+  }
+
+  const matches = (quote: QuoteRecord, query: string) =>
+    [quote.client.name, quote.risk, quote.policyNumber, PRODUCTS[quote.product].label, quote.client.mobile].join(' ').toLowerCase().includes(query)
+
+  const displayValue = (value: string | boolean | undefined) => (value === true ? 'Yes' : value === false ? 'No' : value && value !== '' ? value : '—')
+
+component PolicyDetail
+  props { quote, onClose }: { quote: QuoteRecord; onClose: () => void }
+  setup
+    const navigate = useNavigate()
+    const product = PRODUCTS[quote.product]
+    const status = POLICY_STATUS[quote.status]
+    const next = NEXT[quote.status]
+    const message = `Hi ${quote.client.name.split(' ')[0]}, this is about your ${product.label} ${quote.policyNumber ? `policy ${quote.policyNumber}` : 'quote'} for ${quote.risk}. Total amount due: ${peso(quote.premium.totalAmountDue)}.`
+    const details = productFields(product).filter((field) => !field.key.startsWith('client') && !field.key.startsWith('insured_') && field.key !== 'inception_from' && field.key !== 'inception_to' && quote.values[field.key] !== undefined && quote.values[field.key] !== '')
+    const canClaim = quote.status === 'Active' || quote.status === 'Verified' || quote.status === 'Claimed'
+  div(className='flex flex-col gap-1.5')
+    div(className='panel p-5')
+      div(className='flex items-start justify-between gap-3')
+        div(className='min-w-0')
+          div(className='flex flex-wrap items-center gap-2')
+            h3(className='truncate text-lg font-medium tracking-tight') #{quote.client.name}
+            Chip(label={status.label} tone={status.tone} dot pulse={status.pulse})
+          p(className='mt-1 truncate text-sm text-muted-foreground') #{`${product.label} · ${quote.risk}`}
+        button(type='button' onClick={onClose} aria-label='Close details' className='grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-surface hover:text-foreground')
+          Icon(name='x' size={16} className='m-0')
+      p(className='eyebrow mt-5') Total amount due
+      p(className='numeral mt-1.5 text-[34px] font-medium leading-none') #{peso(quote.premium.totalAmountDue)}
+      p(className='mt-2 font-mono text-xs text-muted-foreground') #{quote.policyNumber || 'No policy number yet'}
+      div(className='mt-4 grid grid-cols-2 gap-1.5')
+        StatTile(label='Insurer' value={quote.insurer.split(' ')[0] || '—'} caption={quote.insurer})
+        StatTile(label='Period' value={shortDate(quote.inceptionTo)} caption={`From ${shortDate(quote.inceptionFrom)}`})
+      div(className='mt-4 flex flex-wrap gap-2')
+        if next
+          CtaButton(label={next.label} icon='chevrons-right' variant='accent' size='sm' onClick={() => setQuoteStatus(quote.id, next.status)})
+        if canClaim
+          CtaButton(label='File claim' icon='claim' size='sm' onClick={() => navigate({ to: '/claims/new', search: { quote: quote.id } })})
+        if quote.status === 'Quote' || quote.status === 'Pending'
+          CtaButton(label='Reject' variant='ghost' size='sm' onClick={() => setQuoteStatus(quote.id, 'Rejected')})
+        if quote.status === 'Active' || quote.status === 'Verified'
+          CtaButton(label='Cancel policy' variant='ghost' size='sm' onClick={() => setQuoteStatus(quote.id, 'Cancelled')})
+        if quote.status === 'Quote' || quote.status === 'Rejected'
+          CtaButton(label='Delete' icon='trash' variant='ghost' size='sm' onClick={() => { deleteQuote(quote.id); onClose() }})
+    div(className='panel p-5')
+      p(className='eyebrow mb-3') Message client
+      ChannelLinks(contact={{ phone: quote.client.mobile, email: quote.client.email }} message={message})
+      p(className='mt-3 font-mono text-[11px] text-muted-foreground') #{`${quote.client.mobile || 'no mobile'} · ${quote.client.email || 'no email'}`}
+    div(className='panel p-5')
+      p(className='eyebrow mb-2') Risk details
+      dl(className='grid grid-cols-2 gap-x-4 gap-y-3')
+        each field in details key field.key
+          div(className='min-w-0')
+            dt(className='font-mono text-2xs uppercase tracking-[0.12em] text-muted-foreground') #{field.label}
+            dd(className='truncate text-sm') #{displayValue(quote.values[field.key])}
+      div(className='my-4 h-px bg-border')
+      p(className='eyebrow mb-2') Premium
+      each line in [...quote.premium.lines, ...quote.premium.taxes] key line.label
+        div(className='flex items-baseline justify-between gap-3 py-1 text-sm')
+          span(className='text-muted-foreground') #{line.label}
+          span(className='font-mono text-[13px] numeral') #{peso(line.amount)}
+
+component ExportAction
+  props { onExport }: { onExport: () => void }
+  CtaButton(label='Export CSV' icon='upload' size='sm' onClick={onExport})
+
+setup
+  const { quotes } = useStore()
+  const [filter, setFilter] = useState<Filter>('all')
+  const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const q = query.trim().toLowerCase()
+  const counts = (key: Filter) => quotes.filter((quote) => FILTERS[key].includes(quote.status)).length
+  const visible = quotes.filter((quote) => FILTERS[filter].includes(quote.status) && (q === '' || matches(quote, q))).sort((a, b) => b.updatedDate.localeCompare(a.updatedDate))
+  const selected = quotes.find((quote) => quote.id === selectedId) ?? null
+  const statuses = FILTERS[filter].map((status) => ({ key: status, value: visible.filter((quote) => quote.status === status).length, color: TONE_COLORS[POLICY_STATUS[status].tone] }))
+  const options = [
+    { value: 'all', label: 'All', count: counts('all') },
+    { value: 'quotes', label: 'Quotes', count: counts('quotes') },
+    { value: 'pending', label: 'Pending', count: counts('pending') },
+    { value: 'inforce', label: 'In force', count: counts('inforce') },
+    { value: 'closed', label: 'Closed', count: counts('closed') }
+  ]
+  const exportAction = createElement(ExportAction, { onExport: () => downloadText('saia-policies.csv', quotesToCsv(visible)) })
+
+div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Book' title='Policies' description='Every quote and policy, from first price to renewal.' actions={exportAction})
+  div(className={cn('grid grid-cols-1 items-start gap-4', selected && 'xl:grid-cols-[minmax(0,1fr)_420px]')})
+    Shell
+      div(className='panel p-2')
+        Segmented(label='Filter policies' options={options} value={filter} onChange={(value) => setFilter(options.some((option) => option.value === value) ? (value as Filter) : 'all')})
+      Panel(title='Records' count={visible.length} caption='Latest first')
+        SegmentBar(segments={statuses})
+        div(className='relative mt-4 mb-2 max-w-sm')
+          Icon(name='search' size={15} className='pointer-events-none absolute left-3 top-1/2 m-0 -translate-y-1/2 text-muted-foreground')
+          input(type='search' value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder='Filter by client, risk, policy no…' aria-label='Filter policies' className='field-input h-10 rounded-full pl-9')
+        each quote in visible key quote.id
+          QuoteRow(quote={quote} onClick={() => setSelectedId(quote.id === selectedId ? null : quote.id)})
+        empty
+          p(className='py-10 text-center text-sm text-muted-foreground') Nothing matches.
+    if selected
+      div(className='xl:sticky xl:top-4')
+        Shell(title='Details' icon='policy')
+          PolicyDetail(key={selected.id} quote={selected} onClose={() => setSelectedId(null)})

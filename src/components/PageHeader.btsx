@@ -1,0 +1,23 @@
+import type { OctaneNode } from 'octane'
+import { cn } from '@/lib/utils'
+
+module
+  export interface PageHeaderProps {
+    title: string
+    eyebrow?: string
+    description?: string
+    actions?: OctaneNode
+    className?: string
+  }
+
+props { title, eyebrow, description, actions, className }: PageHeaderProps
+
+header(className={cn('flex flex-wrap items-end justify-between gap-4 pb-5', className)})
+  div(className='min-w-0')
+    if eyebrow
+      p(className='eyebrow mb-2') #{eyebrow}
+    h1(className='text-2xl font-medium tracking-tight md:text-[28px]') #{title}
+    if description
+      p(className='mt-1 max-w-xl text-sm text-muted-foreground') #{description}
+  if actions
+    div(className='flex flex-wrap items-center gap-2') #{actions}

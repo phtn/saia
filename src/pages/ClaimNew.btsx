@@ -1,0 +1,162 @@
+import { createElement, useState } from 'octane'
+import { useNavigate, useSearch } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import FlowSheet from '@/components/forms/FlowSheet.btsx'
+import FlowStep from '@/components/forms/FlowStep.btsx'
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import { useStore, saveClaim } from '@/lib/insurance/store'
+import { PRODUCTS } from '@/lib/insurance/products'
+import { CLAIM_REQUIREMENTS, INCIDENT_TYPES } from '@/lib/insurance/claims'
+import { isoDate, peso, round2, toNumber } from '@/lib/insurance/format'
+import { ENTER_CLASS, fieldLabelClassName, missingFields, rankTextTone, rankTone, stepStates } from '@/lib/forms/step-flow'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import type { ClaimItem, FieldDef, FormValues, QuoteRecord } from '@/lib/insurance/types'
+
+module
+  interface ItemDraft {
+    id: number
+    description: string
+    amount: string
+  }
+
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  const incidentFields = (quote: QuoteRecord | null): FieldDef[] => [
+    { key: 'incident_type', label: 'Incident type', type: 'select', required: true, options: quote ? INCIDENT_TYPES[quote.product] : [], aliases: ['type', 'what happened'] },
+    { key: 'incident_date', label: 'Incident date', type: 'date', required: true, aliases: ['date', 'when'] },
+    { key: 'location', label: 'Location', type: 'text', placeholder: 'EDSA cor. Ortigas, Pasig', aliases: ['where', 'place'] },
+    { key: 'description', label: 'What happened', type: 'textarea', required: true, aliases: ['description', 'details', 'story'] }
+  ]
+
+component ClaimFooter
+  props { statusLabel, ready, onSubmit }: { statusLabel: string; ready: boolean; onSubmit: () => void }
+  div(className='flex min-w-0 items-center gap-2')
+    span(className={cn('size-1.5 shrink-0 rounded-full', ready ? 'bg-success' : 'bg-muted-foreground')})
+    span(className={cn('truncate text-xs', ready ? 'text-success' : 'text-muted-foreground')}) #{statusLabel}
+  CtaButton(label='File claim' icon='chevrons-right' variant='solid' disabled={!ready} onClick={onSubmit})
+
+setup
+  const { quotes } = useStore()
+  const search = useSearch({ from: '/claims/new' })
+  const navigate = useNavigate()
+  const eligible = quotes.filter((quote) => quote.status === 'Active' || quote.status === 'Verified' || quote.status === 'Claimed')
+  const [quoteId, setQuoteId] = useState<string>(search.quote && eligible.some((quote) => quote.id === search.quote) ? search.quote : '')
+  const [policyQuery, setPolicyQuery] = useState('')
+  const [items, setItems] = useState<ItemDraft[]>([{ id: 1, description: '', amount: '' }])
+  const [docs, setDocs] = useState<string[]>([])
+  const quote = eligible.find((item) => item.id === quoteId) ?? null
+  const fields = incidentFields(quote)
+
+  let submitRef: () => string = () => ''
+  const form = useFlowForm({
+    id: 'claim-new',
+    title: 'New claim',
+    initial: { incident_date: isoDate() },
+    fields,
+    nextStepId: () => ['step-policy', 'step-incident', 'step-items', 'step-docs', 'step-create'][Math.max(0, complete.indexOf(false))] ?? 'step-create',
+    onSubmit: () => submitRef()
+  })
+  const values = form.values
+  const q = policyQuery.trim().toLowerCase()
+  const matches = eligible.filter((item) => q === '' || [item.client.name, item.policyNumber, item.risk].join(' ').toLowerCase().includes(q)).slice(0, 8)
+  const lossItems: ClaimItem[] = items.filter((item) => item.description.trim() !== '' && toNumber(item.amount) > 0).map((item) => ({ description: item.description.trim(), amountClaimed: round2(item.amount), amountAssessed: 0 }))
+  const total = round2(lossItems.reduce((sum, item) => sum + item.amountClaimed, 0))
+  const requirements = quote ? CLAIM_REQUIREMENTS[quote.product] : []
+  const incidentMissing = missingFields(fields, values)
+  const complete = [quote !== null, quote !== null && incidentMissing.length === 0, lossItems.length > 0, quote !== null && docs.length > 0]
+  const ready = complete.every(Boolean)
+  const states = stepStates([...complete, ready])
+  const progressWidth = `${Math.round((complete.filter(Boolean).length / 4) * 100)}%`
+  const statusLabel = ready ? `Ready · ${peso(total)} claimed` : !complete[0] ? 'Needs a policy' : !complete[1] ? `Needs ${incidentMissing[0]?.label.toLowerCase() ?? 'incident details'}` : !complete[2] ? 'Needs a loss item' : 'Needs at least one document'
+
+  const updateItem = (id: number, patch: Partial<ItemDraft>) => setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  const toggleDoc = (doc: string) => setDocs((current) => (current.includes(doc) ? current.filter((item) => item !== doc) : [...current, doc]))
+
+  const submit = (): string => {
+    if (!ready || quote === null) return `Not yet: ${statusLabel.toLowerCase()}.`
+    saveClaim({
+      quoteId: quote.id,
+      policyNumber: quote.policyNumber,
+      product: quote.product,
+      claimant: quote.client.name,
+      incidentDate: text(values, 'incident_date'),
+      incidentType: text(values, 'incident_type'),
+      description: text(values, 'description'),
+      location: text(values, 'location'),
+      items: lossItems,
+      status: 'Filed'
+    })
+    navigate({ to: '/claims' })
+    return 'Claim filed.'
+  }
+  submitRef = submit
+  const footer = createElement(ClaimFooter, { statusLabel, ready, onSubmit: () => void submit() })
+
+div(className='mx-auto w-full max-w-[1100px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Claims' title='First notice of loss' description='Record what happened while the client is on the line; the adjuster takes it from here.')
+  FlowSheet(title='File a claim' badge={`${eligible.length} / policies in force`} footer={footer})
+    FlowStep(id='step-policy' icon='policy' title='Policy' state={states[0]} index={0} stepCount={5} meta={quote ? undefined : 'Select a policy'})
+      if quote
+        div(className={cn('relative flex items-center gap-4 rounded-xl border border-border bg-muted/30 p-4', ENTER_CLASS)})
+          span(className='grid size-11 shrink-0 place-items-center rounded-full border border-border bg-card')
+            Icon(name={PRODUCTS[quote.product].icon} size={19} className='m-0 text-muted-foreground')
+          div(className='min-w-0')
+            p(className='truncate text-lg font-semibold -tracking-[0.02em]') #{quote.policyNumber || 'Unnumbered policy'}
+            p(className='truncate font-mono text-xs text-muted-foreground') #{`${quote.client.name} · ${quote.risk}`}
+          button(type='button' onClick={() => setQuoteId('')} aria-label='Change policy' className='absolute top-2 right-2 grid size-7 place-items-center rounded-md text-muted-foreground/60 transition-colors hover:text-destructive')
+            Icon(name='circle-minus' size={15} className='m-0')
+      else
+        div(className={cn('grid', ENTER_CLASS)})
+          input(type='search' value={policyQuery} onInput={(event) => setPolicyQuery(event.currentTarget.value)} placeholder='Search client, policy number, risk…' aria-label='Search policies' className='field-input rounded-b-none')
+          div(className='max-h-64 overflow-y-auto rounded-b-md border border-t-0 border-input')
+            each item in matches key item.id
+              button(type='button' onClick={() => setQuoteId(item.id)} className='flex w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left last:border-b-0 hover:bg-muted/50')
+                Icon(name={PRODUCTS[item.product].icon} size={16} className='m-0 shrink-0 text-muted-foreground')
+                span(className='min-w-0 flex-1')
+                  span(className='block truncate text-sm') #{item.client.name}
+                  span(className='block truncate font-mono text-[11px] text-muted-foreground') #{`${item.policyNumber} · ${item.risk}`}
+            empty
+              p(className='px-3 py-8 text-center text-sm text-muted-foreground') No in-force policy matches.
+    FlowStep(id='step-incident' icon='alert' title='Incident' state={states[1]} index={1} stepCount={5} meta={quote && incidentMissing.length > 0 ? `${incidentMissing.length} required` : undefined})
+      if quote
+        FieldGrid(fields={fields} values={values} onChange={form.setValue})
+      else
+        p(className='font-mono text-xs text-muted-foreground/60') Incident types follow the selected policy
+    FlowStep(id='step-items' icon='receipt' title='Loss items' state={states[2]} index={2} stepCount={5} meta={`${lossItems.length} · ${peso(total)}`})
+      div(className='flex flex-col gap-2')
+        each item, index in items key item.id
+          div(className='flex items-center gap-2')
+            span(className={cn('grid size-5 shrink-0 place-items-center rounded-full text-2xs text-white', rankTone(index))}) #{index + 1}
+            input(value={item.description} onInput={(event) => updateItem(item.id, { description: event.currentTarget.value })} placeholder='Rear bumper repair' aria-label={`Item ${index + 1} description`} className='field-input min-w-0 flex-1')
+            input(value={item.amount} inputMode='decimal' onInput={(event) => updateItem(item.id, { amount: event.currentTarget.value.replace(/[^\d.]/g, '') })} placeholder='0.00' aria-label={`Item ${index + 1} amount`} className={cn('field-input w-32 shrink-0 text-right font-mono numeral', rankTextTone(index))})
+            button(type='button' onClick={() => setItems((current) => (current.length > 1 ? current.filter((row) => row.id !== item.id) : current))} aria-label={`Remove item ${index + 1}`} className='grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground/60 hover:text-destructive')
+              Icon(name='trash' size={15} className='m-0')
+        button(type='button' onClick={() => setItems((current) => [...current, { id: Math.max(...current.map((row) => row.id)) + 1, description: '', amount: '' }])} className='mono-caps mt-1 flex w-fit items-center gap-2 text-[10.5px] text-muted-foreground hover:text-foreground')
+          span(className='grid size-6 place-items-center rounded-full border border-border')
+            Icon(name='plus' size={12} className='m-0')
+          | Add item
+    FlowStep(id='step-docs' icon='paperclip' title='Documents' state={states[3]} index={3} stepCount={5} meta={quote ? `${docs.length} of ${requirements.length}` : undefined})
+      if quote
+        div(className='grid')
+          each doc, index in requirements key doc
+            button(type='button' onClick={() => toggleDoc(doc)} aria-pressed={docs.includes(doc)} className='flex w-full items-center gap-3 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-muted/50')
+              span(className={cn('grid size-5 shrink-0 place-items-center rounded-full text-2xs text-white transition-opacity', rankTone(index), docs.includes(doc) ? 'opacity-100' : 'opacity-30')}) #{index + 1}
+              span(className={cn('min-w-0 flex-1 truncate font-mono text-xs', docs.includes(doc) ? 'text-foreground' : 'text-muted-foreground/60 line-through')}) #{doc}
+              span(className='hidden h-1.5 w-32 shrink-0 overflow-hidden rounded-full bg-muted sm:block')
+                span(className={cn('block h-full rounded-full transition-all duration-300', rankTone(index), docs.includes(doc) ? 'w-full' : 'w-1/4 opacity-40')})
+              span(className={cn('w-20 shrink-0 text-right font-mono text-2xs', docs.includes(doc) ? rankTextTone(index) : 'text-muted-foreground/50')}) #{docs.includes(doc) ? 'received' : 'pending'}
+      else
+        p(className='font-mono text-xs text-muted-foreground/60') Requirements follow the selected policy
+    FlowStep(id='step-create' icon='sparkle' title='Create' state={states[4]} index={4} stepCount={5} isLast)
+      if ready
+        p(className={cn('font-mono text-xs text-muted-foreground', ENTER_CLASS)}) File the claim and hand it to the adjuster.
+      else
+        div(className='h-2 w-full overflow-hidden rounded-full bg-muted')
+          div(className='h-full rounded-full bg-active/60 transition-[width] duration-500 ease-out' style={{ width: progressWidth }})

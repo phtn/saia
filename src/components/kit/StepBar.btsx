@@ -1,0 +1,27 @@
+import { cn } from '@/lib/utils'
+
+module
+  export interface StepBarProps {
+    steps: readonly string[]
+    current: number
+    onSelect?: (index: number) => void
+    className?: string
+  }
+
+// "STEP 2 OF 4": finished steps solid, the current one in accent, the rest as track.
+props { steps, current, onSelect, className }: StepBarProps
+
+div(className={cn('flex flex-col gap-2.5', className)})
+  div(className='flex gap-1.5')
+    each step, index in steps key step
+      button(
+        ~ type='button'
+        ~ aria-label={`Step ${index + 1}: ${step}`}
+        ~ aria-current={index === current ? 'step' : undefined}
+        ~ disabled={onSelect === undefined || index > current}
+        ~ onClick={() => onSelect?.(index)}
+        ~ className={cn('h-1 flex-1 rounded-full transition-colors duration-300 disabled:cursor-default', index < current ? 'bg-foreground' : index === current ? 'bg-accent-brand' : 'bg-surface-2')}
+        ~ )
+  div(className='flex items-center justify-between gap-3')
+    span(className='text-sm') #{steps[current]}
+    span(className='eyebrow') Step #{current + 1} of #{steps.length}

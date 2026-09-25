@@ -6,6 +6,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "jsx": "preserve",
     "types": [
@@ -28,6 +29,6 @@
     "rsbuild.config.ts"
   ],
   "tsrx": {
-    "compiler": "octane"
+    "compiler": "octane/compiler/volar"
   }
 }

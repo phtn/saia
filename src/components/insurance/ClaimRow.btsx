@@ -1,0 +1,14 @@
+import { createElement } from 'octane'
+import ListRow from '@/components/kit/ListRow.btsx'
+import { PRODUCTS } from '@/lib/insurance/products'
+import { CLAIM_STATUS } from '@/lib/insurance/status'
+import { claimLoss } from '@/lib/insurance/claims'
+import { pesoCompact, shortDate } from '@/lib/insurance/format'
+import type { ClaimRecord } from '@/lib/insurance/types'
+
+props { claim, onClick }: { claim: ClaimRecord; onClick?: () => void }
+setup
+  const meta = CLAIM_STATUS[claim.status]
+  const amount = createElement('span', { className: 'shrink-0 rounded-md border border-border bg-surface px-2 py-1 font-mono text-xs numeral' }, pesoCompact(claimLoss(claim)))
+
+ListRow(icon={PRODUCTS[claim.product].icon} title={`${claim.claimant} — ${claim.incidentType}`} meta={[claim.claimNumber, { text: meta.label, tone: meta.tone }, shortDate(claim.incidentDate)]} badgeTone={meta.pulse ? meta.tone : undefined} trailing={amount} onClick={onClick})

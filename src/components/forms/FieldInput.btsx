@@ -1,0 +1,55 @@
+import { cn } from '@/lib/utils'
+import Toggle from '@/components/kit/Toggle.btsx'
+import { peso, toNumber } from '@/lib/insurance/format'
+import type { FieldDef, FieldValue } from '@/lib/insurance/types'
+
+module
+  export interface FieldInputProps {
+    field: FieldDef
+    value: FieldValue | undefined
+    onChange: (key: string, value: FieldValue) => void
+    error?: string
+  }
+
+  const INPUT_TYPES: Record<string, string> = { text: 'text', email: 'email', tel: 'tel', number: 'number', date: 'date' }
+
+props { field, value, onChange, error }: FieldInputProps
+setup
+  const id = `field-${field.key}`
+  const text = typeof value === 'string' ? value : ''
+  const describedBy = error ? `${id}-error` : field.hint ? `${id}-hint` : undefined
+  const moneyPreview = field.type === 'money' && text !== '' ? peso(toNumber(text.replace(/[₱,\s]/g, ''))) : ''
+
+if field.type === 'boolean'
+  div(className={cn('tile flex items-center justify-between gap-4 px-4 py-3', field.wide && 'sm:col-span-2')})
+    div(className='min-w-0')
+      label(htmlFor={id} className='block text-[15px]') #{field.label}
+      if field.hint
+        p(id={`${id}-hint`} className='text-xs text-muted-foreground') #{field.hint}
+    Toggle(id={id} label={field.label} checked={value === true} onChange={(checked) => onChange(field.key, checked)})
+else
+  div(className={cn('flex min-w-0 flex-col gap-1.5', (field.wide || field.type === 'textarea') && 'sm:col-span-2')})
+    label(htmlFor={id} className='font-mono text-2xs uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1')
+      | #{field.label}
+      if field.required
+        span(className='text-accent-brand' aria-hidden={true}) *
+    switch field.type
+      case 'select'
+        select(id={id} value={text} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onChange={(event) => onChange(field.key, event.currentTarget.value)} className='field-input appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-9')
+          option(value='') Select…
+          each option in field.options ?? [] key option
+            option(value={option}) #{option}
+      case 'textarea'
+        textarea(id={id} value={text} rows={3} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} className='field-input h-auto py-2.5')
+      case 'money'
+        div(className='relative')
+          span(className='pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground') #{'₱'}
+          input(id={id} value={text} inputMode='decimal' placeholder={field.placeholder ?? '0.00'} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value.replace(/[^\d.]/g, ''))} className='field-input pl-7 font-mono numeral')
+      default
+        input(id={id} type={INPUT_TYPES[field.type] ?? 'text'} value={text} min={field.min} max={field.max} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} className={cn('field-input', (field.type === 'number' || field.type === 'tel') && 'font-mono numeral')})
+    if error
+      p(id={`${id}-error`} className='text-xs text-destructive') #{error}
+    elseif field.hint
+      p(id={`${id}-hint`} className='text-xs text-muted-foreground') #{field.hint}
+    elseif moneyPreview
+      p(className='font-mono text-[11px] text-muted-foreground numeral') #{moneyPreview}
