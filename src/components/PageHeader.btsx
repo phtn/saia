@@ -1,5 +1,7 @@
-import type { OctaneNode } from 'octane'
+import { createPortal, type OctaneNode } from 'octane'
 import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useTopbarSlot } from '@/lib/topbar-slot'
 
 module
   export interface PageHeaderProps {
@@ -10,14 +12,34 @@ module
     className?: string
   }
 
-props { title, eyebrow, description, actions, className }: PageHeaderProps
+  function TopbarPortal({ target, ...props }: PageHeaderProps & { target: HTMLElement }) {
+    return createPortal(TopbarHeader, target, props)
+  }
 
-header(className={cn('flex flex-wrap items-end justify-between gap-4 pb-5', className)})
-  div(className='min-w-0')
-    if eyebrow
-      p(className='eyebrow mb-2') #{eyebrow}
-    h1(className='text-2xl font-medium tracking-tight md:text-[28px]') #{title}
+// Compact variant rendered into the topbar, right after the wordmark.
+component TopbarHeader
+  props { title, description, actions }: PageHeaderProps
+  div(className='flex min-w-0 flex-1 items-center gap-4 border-l border-border pl-4')
+    h1(className='shrink-0 whitespace-nowrap text-[15px] font-medium tracking-tight' title={description}) #{title}
     if description
-      p(className='mt-1 max-w-xl text-sm text-muted-foreground') #{description}
-  if actions
-    div(className='flex flex-wrap items-center gap-2') #{actions}
+      p(className='hidden min-w-0 truncate text-[13px] text-muted-foreground xl:block') #{description}
+    if actions
+      div(className='ml-auto flex shrink-0 items-center gap-2') #{actions}
+
+props { title, eyebrow, description, actions, className }: PageHeaderProps
+setup
+  const slot = useTopbarSlot()
+  const isDesktop = useMediaQuery('(min-width: 48rem)')
+
+if slot && isDesktop
+  TopbarPortal(target={slot} title={title} eyebrow={eyebrow} description={description} actions={actions})
+else
+  header(className={cn('flex flex-wrap items-end justify-between gap-4 pb-5', className)})
+    div(className='min-w-0')
+      if eyebrow
+        p(className='eyebrow mb-2') #{eyebrow}
+      h1(className='text-2xl font-medium tracking-tight md:text-[28px]') #{title}
+      if description
+        p(className='mt-1 max-w-xl text-sm text-muted-foreground') #{description}
+    if actions
+      div(className='flex flex-wrap items-center gap-2') #{actions}

@@ -10,6 +10,8 @@ export interface SpeechSession {
 
 export interface ListenOptions {
   lang?: string
+  /** Keep listening across pauses instead of stopping after the first phrase. */
+  continuous?: boolean
   onPartial?: (text: string) => void
   onResult: (text: string) => void
   onError?: (message: string) => void
@@ -61,13 +63,13 @@ const ERRORS: Record<string, string> = {
   network: 'Speech service unreachable.'
 }
 
-export function listen({ lang = 'en-PH', onPartial, onResult, onError, onEnd }: ListenOptions): SpeechSession | null {
+export function listen({ lang = 'en-PH', continuous = false, onPartial, onResult, onError, onEnd }: ListenOptions): SpeechSession | null {
   const Recognition = recognitionClass()
   if (Recognition === null) return null
   const recognition = new Recognition()
   recognition.lang = lang
   recognition.interimResults = true
-  recognition.continuous = false
+  recognition.continuous = continuous
   recognition.onresult = (event) => {
     let partial = ''
     for (let i = event.resultIndex; i < event.results.length; i++) {

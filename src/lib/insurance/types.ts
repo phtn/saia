@@ -32,6 +32,10 @@ export interface FieldDef {
   wide?: boolean
   /** Extra spoken names the voice assistant should accept for this field. */
   aliases?: readonly string[]
+  /** Extra TanStack validation after the required check; return an error message or undefined. */
+  validate?: (value: FieldValue, values: FormValues) => string | undefined
+  /** Re-run `validate` when these sibling fields change (TanStack `onChangeListenTo`). */
+  dependsOn?: readonly string[]
 }
 
 export interface FormSection {

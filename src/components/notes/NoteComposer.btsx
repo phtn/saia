@@ -1,0 +1,76 @@
+import { useEffect, useRef, useState } from 'octane'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import NoteFields from './NoteFields.btsx'
+import { noteBackground } from '@/lib/notes/colors'
+import { deleteClipAudio } from '@/lib/notes/audio-db'
+import { createNote, isBlank, joinText } from '@/lib/notes/store'
+import type { AudioClip, NoteDraft } from '@/lib/notes/types'
+
+module
+  const EMPTY: NoteDraft = { title: '', body: '', color: 'default', pinned: false, clips: [] }
+
+// Keep's "Take a note…" bar: collapsed until focused, saved when closed or clicked away from.
+props {}: {}
+setup
+  const [open, setOpen] = useState(false)
+  const [startWith, setStartWith] = useState<'dictate' | 'record' | undefined>(undefined)
+  const [draft, setDraftState] = useState<NoteDraft>(EMPTY)
+  // Close runs after async recording saves, so it reads the draft from a ref, not a stale closure.
+  const latest = useRef<NoteDraft>(EMPTY)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const closing = useRef(false)
+
+  const setDraft = (update: (current: NoteDraft) => NoteDraft) => {
+    latest.current = update(latest.current)
+    setDraftState(latest.current)
+  }
+  const dropClip = (clip: AudioClip) => {
+    void deleteClipAudio(clip.id)
+    setDraft((current) => ({ ...current, clips: current.clips.filter((item) => item.id !== clip.id) }))
+  }
+  const expand = (mode?: 'dictate' | 'record') => {
+    setStartWith(mode)
+    setOpen(true)
+  }
+  const finishDraft = () => {
+    const current = latest.current
+    if (!isBlank(current)) createNote(current)
+    latest.current = EMPTY
+    setDraftState(EMPTY)
+    setOpen(false)
+    setStartWith(undefined)
+    closing.current = false
+  }
+  // Clicking elsewhere closes it, via the Close button's path so a live recording is kept.
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (closing.current || rootRef.current?.contains(event.target as Node)) return
+      closing.current = true
+      rootRef.current?.querySelector<HTMLButtonElement>('[data-note-close]')?.click()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
+div(ref={rootRef} className='mx-auto w-full max-w-xl')
+  if open
+    div(className={cn('shell overflow-hidden border border-border shadow-lg')} style={{ background: noteBackground(draft.color) }})
+      NoteFields(
+        ~ {...draft}
+        ~ startWith={startWith}
+        ~ autoFocus={startWith ? 'title' : 'body'}
+        ~ onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+        ~ onAppend={(text) => setDraft((current) => ({ ...current, body: joinText(current.body, text) }))}
+        ~ onAddClip={(clip: AudioClip) => setDraft((current) => ({ ...current, clips: [...current.clips, clip] }))}
+        ~ onRemoveClip={dropClip}
+        ~ onDone={finishDraft}
+        ~ )
+  else
+    div(className='shell flex items-center gap-1 border border-border py-1.5 pr-2 pl-4 shadow-xs')
+      button(type='button' onClick={() => expand()} className='h-9 min-w-0 flex-1 text-left text-[15px] text-muted-foreground') Take a note…
+      button(type='button' onClick={() => expand('dictate')} aria-label='New note by voice' title='New note by voice' className='grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground')
+        Icon(name='mic' size={17} className='m-0')
+      button(type='button' onClick={() => expand('record')} aria-label='New audio note' title='New audio note' className='grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground')
+        Icon(name='audio-lines' size={17} className='m-0')

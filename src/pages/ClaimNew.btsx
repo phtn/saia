@@ -40,7 +40,7 @@ component ClaimFooter
   div(className='flex min-w-0 items-center gap-2')
     span(className={cn('size-1.5 shrink-0 rounded-full', ready ? 'bg-success' : 'bg-muted-foreground')})
     span(className={cn('truncate text-xs', ready ? 'text-success' : 'text-muted-foreground')}) #{statusLabel}
-  CtaButton(label='File claim' icon='chevrons-right' variant='solid' disabled={!ready} onClick={onSubmit})
+  CtaButton(label='File claim' icon='chevrons-right' variant='claim' disabled={!ready} onClick={onSubmit})
 
 setup
   const { quotes } = useStore()
@@ -126,7 +126,7 @@ div(className='mx-auto w-full max-w-[1100px] px-4 py-6 md:px-8 md:py-8')
               p(className='px-3 py-8 text-center text-sm text-muted-foreground') No in-force policy matches.
     FlowStep(id='step-incident' icon='alert' title='Incident' state={states[1]} index={1} stepCount={5} meta={quote && incidentMissing.length > 0 ? `${incidentMissing.length} required` : undefined})
       if quote
-        FieldGrid(fields={fields} values={values} onChange={form.setValue})
+        FieldGrid(form={form} fields={fields})
       else
         p(className='font-mono text-xs text-muted-foreground/60') Incident types follow the selected policy
     FlowStep(id='step-items' icon='receipt' title='Loss items' state={states[2]} index={2} stepCount={5} meta={`${lossItems.length} · ${peso(total)}`})

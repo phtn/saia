@@ -1,0 +1,50 @@
+import { useState } from 'octane'
+import { Popover } from '@octanejs/base-ui/popover'
+import type { Matcher } from '@octanejs/day-picker'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import Calendar, { type CalendarCaptionLayout } from './Calendar.btsx'
+
+module
+  export interface DatePickerProps {
+    value: Date | undefined
+    onChange: (date: Date | undefined) => void
+    id?: string
+    placeholder?: string
+    captionLayout?: CalendarCaptionLayout
+    disabled?: Matcher | Matcher[]
+    startMonth?: Date
+    endMonth?: Date
+    invalid?: boolean
+    'aria-describedby'?: string
+    className?: string
+  }
+
+  const LABEL = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' } as const
+
+// Single-date field: looks like `field-input`, opens the shared Calendar in a popover and closes on pick.
+props { value, onChange, id, placeholder = 'Pick a date', captionLayout = 'label', disabled, startMonth, endMonth, invalid = false, 'aria-describedby': describedBy, className }: DatePickerProps
+setup
+  const [open, setOpen] = useState(false)
+  const pick = (date: Date | undefined) => {
+    onChange(date)
+    if (date) setOpen(false)
+  }
+
+Popover.Root(open={open} onOpenChange={setOpen})
+  Popover.Trigger(
+    ~ id={id}
+    ~ data-slot='date-picker'
+    ~ aria-invalid={invalid || undefined}
+    ~ aria-describedby={describedBy}
+    ~ className={cn('field-input flex cursor-pointer items-center gap-2 text-left', !value && 'text-muted-foreground', className)}
+    ~ )
+    Icon(name='calendar' size={15} className='m-0 shrink-0 text-muted-foreground')
+    span(className='min-w-0 flex-1 truncate') #{value ? value.toLocaleDateString('en-PH', LABEL) : placeholder}
+  Popover.Portal
+    Popover.Positioner(side='bottom' align='start' sideOffset={6} className='z-50')
+      Popover.Popup(className='origin-(--transform-origin) overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0')
+        Calendar(mode='single' selected={value} onSelectDate={pick} captionLayout={captionLayout} disabled={disabled} startMonth={startMonth} endMonth={endMonth} className='bg-transparent')
+        div(className='flex items-center justify-between gap-2 border-t border-border px-3 py-2')
+          button(type='button' onClick={() => pick(new Date())} className='h-7 rounded-full px-3 text-[13px] text-muted-foreground hover:bg-surface hover:text-foreground') Today
+          button(type='button' onClick={() => onChange(undefined)} disabled={!value} className='h-7 rounded-full px-3 text-[13px] text-muted-foreground hover:bg-surface hover:text-foreground disabled:pointer-events-none disabled:opacity-50') Clear

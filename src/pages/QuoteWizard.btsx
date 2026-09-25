@@ -112,7 +112,7 @@ component QuoteFlow
           ~ stepCount={sections.length + 1}
           ~ meta={missing[index].length > 0 ? `${missing[index].length} required` : undefined}
           ~ )
-          FieldGrid(fields={section.fields} values={values} onChange={form.setValue} errors={errors})
+          FieldGrid(form={form} fields={section.fields} errors={errors})
       FlowStep(id='step-create' icon='sparkle' title='Create' state={states[sections.length]} index={sections.length} stepCount={sections.length + 1} isLast)
         if canSave
           p(className={cn('font-mono text-xs text-muted-foreground', ENTER_CLASS)}) #{`Save the quote, or submit it to ${text(values, 'insurer_name') || 'the insurer'} for issuance.`}

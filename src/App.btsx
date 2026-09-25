@@ -43,7 +43,7 @@ ThemeProvider
   MobileSidebar(open={mobileNavOpen} onOpenChange={setMobileNavOpen} title="SAIA")
     SidebarNav(path={path})
   if isDesktop
-    Group(orientation="horizontal" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged} className="h-[calc(100dvh-var(--topbar-height))] overflow-hidden")
+    Group(orientation="horizontal" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged} className="h-[calc(100dvh-var(--topbar-height))]! overflow-hidden")
       Panel(id="sidebar" panelRef={sidebarRef} defaultSize="200px" minSize="200px" maxSize="300px" collapsible collapsedSize="64px" onResize={syncCompact})
         Sidebar(path={path} isCompact={isCompact})
       Separator(aria-label="Resize sidebar" className={SEPARATOR_CLASS})

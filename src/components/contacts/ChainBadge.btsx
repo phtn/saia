@@ -1,0 +1,10 @@
+import { cn } from '@/lib/utils'
+import { CHAINS } from '@/lib/contacts/chains'
+import type { ChainId } from '@/lib/contacts/types'
+
+// Chain symbol with its brand colour as a dot, e.g. "● ETH".
+props { chain, className }: { chain: ChainId; className?: string }
+
+span(title={CHAINS[chain].label} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-[10.5px] tracking-wide', className)})
+  span(className='size-2 rounded-full' style={{ background: CHAINS[chain].color }})
+  | #{CHAINS[chain].symbol}

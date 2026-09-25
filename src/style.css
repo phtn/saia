@@ -38,6 +38,8 @@
   --color-shell: var(--shell);
   --color-accent-brand: var(--accent-brand);
   --color-accent-brand-foreground: var(--accent-brand-foreground);
+  --color-claim: var(--claim);
+  --color-claim-foreground: var(--claim-foreground);
   --color-neutral-dot: var(--neutral-dot);
   --color-active: var(--active);
   --color-flow-done: var(--flow-done);
@@ -135,6 +137,9 @@
   /* Signal colours from the reference palette. */
   --accent-brand: oklch(0.69 0.2 45);
   --accent-brand-foreground: oklch(0.99 0 0);
+  /* Claims actions: teal, so they never read as a quote/policy action. */
+  --claim: #63dbcd;
+  --claim-foreground: oklch(0.22 0.04 185);
   --positive: oklch(0.68 0.17 155);
   --success: oklch(0.66 0.17 155);
   --success-foreground: oklch(0.45 0.12 155);
@@ -167,6 +172,9 @@
   --invert-foreground: oklch(0.98 0 0);
   --shadow-shell: 0 1px 2px oklch(0 0 0 / 4%), 0 8px 24px -12px oklch(0 0 0 / 10%);
   --shadow-cta: 0 6px 18px -6px oklch(0.69 0.2 45 / 55%);
+  /* How much of a note's pastel shows through the card (see lib/notes/colors.ts). */
+  --note-mix: 55%;
+  --shadow-cta-claim: 0 6px 18px -6px oklch(0.82 0.11 182 / 55%);
 }
 
 .dark {
@@ -205,6 +213,7 @@
   --info: oklch(0.82 0.11 185);
   --info-foreground: oklch(0.86 0.09 185);
   --neutral-dot: oklch(0.55 0 0);
+  --note-mix: 32%;
   --active: oklch(0.68 0.18 255);
   --flow-done: oklch(0.74 0.16 162);
   --lines: oklch(0.25 0 0);

@@ -1,6 +1,7 @@
 import { createElement, useState } from 'octane'
 import { useNavigate } from '@octanejs/tanstack-router'
 import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
 import Shell from '@/components/kit/Shell.btsx'
 import Panel from '@/components/kit/Panel.btsx'
 import StatTile from '@/components/kit/StatTile.btsx'
@@ -71,11 +72,7 @@ setup
   const allTasks = createElement(LinkCaption, { label: 'All tasks', onClick: () => navigate({ to: '/tasks' }) })
 
 div(className='mx-auto w-full max-w-[1400px] px-4 py-6')
-  header(className='flex flex-wrap items-end justify-between gap-4 pb-6')
-    div
-      p(className='eyebrow mb-2') #{now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })}
-      h1(className='text-2xl font-medium tracking-tight md:text-[28px]') #{greeting(now)}
-      p(className='mt-1 text-sm text-muted-foreground') #{`${pipeline.length} quotes in play, ${renewals.length} renewals coming up, ${openClaims.length} open claims.`}
+  PageHeader(eyebrow={now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })} title={greeting(now)} description={`${pipeline.length} quotes in play, ${renewals.length} renewals coming up, ${openClaims.length} open claims.`} className='pb-6')
   div(className='grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]')
     Shell(title='Book overview' icon='info' actions={scopeChip} footer={footer})
       div(className='panel p-5')

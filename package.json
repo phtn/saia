@@ -11,8 +11,10 @@
     "check": "bun run typecheck && bun run build"
   },
   "dependencies": {
+    "@octanejs/day-picker": "^0.0.22",
     "@octanejs/resizable-panels": "^0.0.13",
     "@octanejs/shadcn": "0.0.38",
+    "@octanejs/tanstack-form": "^0.0.52",
     "@octanejs/tanstack-router": "^0.1.56",
     "beast-tsrx": "0.2.62",
     "clsx": "^2.1.1",

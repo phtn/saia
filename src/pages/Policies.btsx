@@ -77,13 +77,13 @@ component PolicyDetail
         if next
           CtaButton(label={next.label} icon='chevrons-right' variant='accent' size='sm' onClick={() => setQuoteStatus(quote.id, next.status)})
         if canClaim
-          CtaButton(label='File claim' icon='claim' size='sm' onClick={() => navigate({ to: '/claims/new', search: { quote: quote.id } })})
+          CtaButton(label='File claim' icon='claim' variant='claim' size='sm' onClick={() => navigate({ to: '/claims/new', search: { quote: quote.id } })})
         if quote.status === 'Quote' || quote.status === 'Pending'
-          CtaButton(label='Reject' variant='ghost' size='sm' onClick={() => setQuoteStatus(quote.id, 'Rejected')})
+          CtaButton(label='Reject' variant='danger' size='sm' onClick={() => setQuoteStatus(quote.id, 'Rejected')})
         if quote.status === 'Active' || quote.status === 'Verified'
-          CtaButton(label='Cancel policy' variant='ghost' size='sm' onClick={() => setQuoteStatus(quote.id, 'Cancelled')})
+          CtaButton(label='Cancel policy' variant='danger' size='sm' onClick={() => setQuoteStatus(quote.id, 'Cancelled')})
         if quote.status === 'Quote' || quote.status === 'Rejected'
-          CtaButton(label='Delete' icon='trash' variant='ghost' size='sm' onClick={() => { deleteQuote(quote.id); onClose() }})
+          CtaButton(label='Delete' icon='trash' variant='danger' size='sm' onClick={() => { deleteQuote(quote.id); onClose() }})
     div(className='panel p-5')
       p(className='eyebrow mb-3') Message client
       ChannelLinks(contact={{ phone: quote.client.mobile, email: quote.client.email }} message={message})

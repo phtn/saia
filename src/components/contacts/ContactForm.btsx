@@ -1,0 +1,82 @@
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import { addContact, updateContact, type ContactInput } from '@/lib/contacts/store'
+import type { Contact } from '@/lib/contacts/types'
+import type { FieldDef, FormValues } from '@/lib/insurance/types'
+
+module
+  export interface ContactFormProps {
+    /** Edit this contact; omit to create a new one. */
+    contact?: Contact
+    onSaved: (contact: Contact) => void
+    onCancel?: () => void
+  }
+
+  const CHANNELS = ['WhatsApp', 'Viber', 'Messenger', 'SMS', 'Email', 'Telegram', 'Signal', 'Phone call']
+
+  const FIELDS: FieldDef[] = [
+    { key: 'name', label: 'Name', type: 'text', required: true, wide: true, placeholder: 'Maria Santos', aliases: ['full name', 'contact'] },
+    { key: 'company', label: 'Company', type: 'text', placeholder: 'Optional', aliases: ['organization', 'employer'] },
+    { key: 'channel', label: 'Preferred channel', type: 'select', options: CHANNELS, aliases: ['channel', 'reach via'] },
+    {
+      key: 'mobile',
+      label: 'Mobile',
+      type: 'tel',
+      placeholder: '0917 123 4567',
+      aliases: ['phone', 'number', 'cell'],
+      validate: (value) => {
+        const digits = String(value).replace(/\D/g, '')
+        return /^[+\d\s()-]+$/.test(String(value)) && digits.length >= 7 && digits.length <= 15 ? undefined : 'Enter a phone number (7–15 digits).'
+      }
+    },
+    { key: 'email', label: 'Email', type: 'email', placeholder: 'name@example.com', aliases: ['e-mail'], validate: (value) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim()) ? undefined : 'Enter a valid email address.') },
+    { key: 'birthday', label: 'Birthday', type: 'date', aliases: ['birthdate', 'date of birth'] },
+    { key: 'address', label: 'Address', type: 'text', wide: true, placeholder: 'City, province', aliases: ['location', 'where'] },
+    { key: 'notes', label: 'Notes', type: 'textarea', aliases: ['note', 'remarks'] }
+  ]
+
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  const toValues = (contact: Contact | undefined): FormValues =>
+    contact ? { name: contact.name, company: contact.company, channel: contact.channel, mobile: contact.mobile, email: contact.email, birthday: contact.birthday, address: contact.address, notes: contact.notes } : {}
+
+// Create or edit a contact. Mount with a `key` per contact so the form re-seeds.
+props { contact, onSaved, onCancel }: ContactFormProps
+setup
+  let saveRef: () => string = () => ''
+  const form = useFlowForm({ id: contact ? `contact-${contact.id}` : 'contact-new', title: contact ? `Edit ${contact.name}` : 'New contact', initial: toValues(contact), fields: FIELDS, nextStepId: () => null, onSubmit: () => saveRef() })
+  const save = (): string => {
+    const values = form.values
+    if (text(values, 'name') === '') return 'A contact needs a name.'
+    const input: ContactInput = {
+      name: text(values, 'name'),
+      company: text(values, 'company'),
+      channel: text(values, 'channel'),
+      mobile: text(values, 'mobile'),
+      email: text(values, 'email'),
+      birthday: text(values, 'birthday'),
+      address: text(values, 'address'),
+      notes: text(values, 'notes')
+    }
+    if (contact) {
+      updateContact(contact.id, input)
+      onSaved({ ...contact, ...input })
+      return `${input.name} updated.`
+    }
+    const created = addContact(input)
+    form.reset({})
+    onSaved(created)
+    return `${created.name} added to contacts.`
+  }
+  saveRef = save
+
+form(noValidate className='panel p-5' onSubmit={(event) => { event.preventDefault(); void form.submit() }})
+  FieldGrid(form={form} fields={FIELDS})
+  div(className='mt-5 flex gap-2')
+    if onCancel
+      CtaButton(label='Cancel' variant='ghost' onClick={onCancel})
+    CtaButton(type='submit' label={contact ? 'Save changes' : 'Add contact'} icon={contact ? 'check' : 'user-plus'} variant='solid' className='flex-1')

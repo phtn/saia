@@ -1,0 +1,53 @@
+import { useState } from 'octane'
+import { Popover } from '@octanejs/base-ui/popover'
+import type { DateRange, Matcher } from '@octanejs/day-picker'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import Calendar from './Calendar.btsx'
+
+module
+  export interface DateRangePickerProps {
+    value: DateRange | undefined
+    onChange: (range: DateRange | undefined) => void
+    placeholder?: string
+    numberOfMonths?: number
+    disabled?: Matcher | Matcher[]
+    startMonth?: Date
+    endMonth?: Date
+    className?: string
+  }
+
+  const DAY = { month: 'short', day: 'numeric' } as const
+  const FULL = { month: 'short', day: 'numeric', year: 'numeric' } as const
+
+  const fmt = (date: Date, options: Intl.DateTimeFormatOptions) => date.toLocaleDateString('en-PH', options)
+
+  /** "Sep 1 – 25, 2026" style label; drops the repeated year when both ends share it. */
+  const rangeLabel = ({ from, to }: DateRange) => {
+    if (!from) return ''
+    if (!to) return fmt(from, FULL)
+    return from.getFullYear() === to.getFullYear() ? `${fmt(from, DAY)} – ${fmt(to, FULL)}` : `${fmt(from, FULL)} – ${fmt(to, FULL)}`
+  }
+
+props { value, onChange, placeholder = 'Pick a date range', numberOfMonths = 2, disabled, startMonth, endMonth, className }: DateRangePickerProps
+setup
+  const [open, setOpen] = useState(false)
+  const label = value?.from ? rangeLabel(value) : placeholder
+  const clear = () => onChange(undefined)
+
+Popover.Root(open={open} onOpenChange={setOpen})
+  Popover.Trigger(
+    ~ data-slot='date-range-picker'
+    ~ className={cn('inline-flex h-10 min-w-60 items-center gap-2 rounded-full border border-border bg-card px-4 text-left text-sm transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-surface', !value?.from && 'text-muted-foreground', className)}
+    ~ )
+    Icon(name='calendar' size={16} className='m-0 shrink-0 text-muted-foreground')
+    span(className='min-w-0 flex-1 truncate') #{label}
+  Popover.Portal
+    Popover.Positioner(side='bottom' align='start' sideOffset={6} className='z-50')
+      Popover.Popup(className='origin-(--transform-origin) overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0')
+        Calendar(selectedRange={value} handleSelect={onChange} numberOfMonths={numberOfMonths} showOutsideDays={numberOfMonths === 1} disabled={disabled} startMonth={startMonth} endMonth={endMonth} className='bg-transparent')
+        div(className='flex items-center justify-between gap-2 border-t border-border px-3 py-2')
+          span(className='mono-caps text-[10.5px] text-muted-foreground') #{value?.from ? rangeLabel(value) : 'No range selected'}
+          div(className='flex items-center gap-1')
+            button(type='button' onClick={clear} disabled={!value?.from} className='h-7 rounded-full px-3 text-[13px] text-muted-foreground hover:bg-surface hover:text-foreground disabled:pointer-events-none disabled:opacity-50') Clear
+            button(type='button' onClick={() => setOpen(false)} className='h-7 rounded-full bg-invert px-3 text-[13px] text-invert-foreground hover:brightness-110') Done

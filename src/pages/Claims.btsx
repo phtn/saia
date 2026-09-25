@@ -50,7 +50,7 @@ component ClaimDetail
       if actions.length > 0
         div(className='mt-4 flex flex-wrap gap-2')
           each action, index in actions key action.status
-            CtaButton(label={action.label} icon={index === 0 ? 'chevrons-right' : undefined} variant={index === 0 ? 'accent' : 'ghost'} size='sm' onClick={() => setClaimStatus(claim.id, action.status)})
+            CtaButton(label={action.label} icon={index === 0 ? 'chevrons-right' : undefined} variant={action.status === 'Denied' ? 'danger' : 'claim'} size='sm' onClick={() => setClaimStatus(claim.id, action.status)})
     div(className='panel p-5')
       p(className='eyebrow mb-2') Loss items
       each item in claim.items key item.description
@@ -67,7 +67,7 @@ component ClaimDetail
 
 component NewClaimAction
   props { onClick }: { onClick: () => void }
-  CtaButton(label='File a claim' icon='plus' variant='accent' size='md' onClick={onClick})
+  CtaButton(label='File a claim' icon='plus' variant='claim' size='md' onClick={onClick})
 
 setup
   const { claims } = useStore()

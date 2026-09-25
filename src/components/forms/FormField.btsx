@@ -1,0 +1,33 @@
+import { useField } from '@octanejs/tanstack-form'
+import FieldInput from './FieldInput.btsx'
+import { fieldValidator, type FlowForm } from '@/lib/forms/useFlowForm'
+import type { FieldDef } from '@/lib/insurance/types'
+
+module
+  export interface FormFieldProps {
+    form: FlowForm
+    field: FieldDef
+    /** An error decided by the page (e.g. after a save attempt); wins over the field's own. */
+    error?: string
+  }
+
+// One `FieldDef` bound to the TanStack form via `useField`, rendered with `FieldInput`.
+props { form, field, error }: FormFieldProps
+setup
+  const validate = fieldValidator(field)
+  const api = useField({
+    form: form.api,
+    name: field.key,
+    // One `onChange` validator: TanStack also runs it on submit, and its errors clear on the next change.
+    validators: { onChange: validate, onChangeListenTo: field.dependsOn ? [...field.dependsOn] : undefined }
+  })
+  // Leaving a field shows its error without waiting for a keystroke.
+  const blur = () => {
+    api.handleBlur()
+    void api.validate('change')
+  }
+  // handleSubmit touches every field, and a reset clears it, so touched is the one gate we need.
+  const meta = api.state.meta
+  const own = meta.isTouched ? meta.errors.find((item): item is string => typeof item === 'string') : undefined
+
+FieldInput(field={field} value={api.state.value} onChange={(_key, value) => api.handleChange(value)} onBlur={blur} error={error ?? own})

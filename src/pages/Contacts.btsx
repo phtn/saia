@@ -1,0 +1,123 @@
+import { createElement, useState } from 'octane'
+import { useNavigate } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import ChannelLinks from '@/components/insurance/ChannelLinks.btsx'
+import ContactAvatar from '@/components/contacts/ContactAvatar.btsx'
+import ContactForm from '@/components/contacts/ContactForm.btsx'
+import WalletRow from '@/components/contacts/WalletRow.btsx'
+import { deleteContact, updateContact, useContacts } from '@/lib/contacts/store'
+import { shortDate } from '@/lib/insurance/format'
+import type { Contact, Wallet } from '@/lib/contacts/types'
+
+module
+  type Pane = { mode: 'new' } | { mode: 'view'; id: string } | { mode: 'edit'; id: string }
+
+  const matches = (contact: Contact, query: string) => [contact.name, contact.company, contact.email, contact.mobile].join(' ').toLowerCase().includes(query)
+
+component ContactsActions
+  props { query, onQuery, onNew }: { query: string; onQuery: (value: string) => void; onNew: () => void }
+  label(className='relative flex h-8 w-44 items-center lg:w-60')
+    span(className='pointer-events-none absolute left-3 flex text-muted-foreground')
+      Icon(name='search' size={14} className='m-0')
+    input(type='search' value={query} placeholder='Search contacts' aria-label='Search contacts' onInput={(event) => onQuery(event.currentTarget.value)} className='h-8 w-full rounded-full border border-border bg-card pr-3 pl-8 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring')
+  CtaButton(label='New contact' icon='user-plus' size='sm' onClick={onNew})
+
+component ContactRow
+  props { contact, walletCount, active, onSelect }: { contact: Contact; walletCount: number; active: boolean; onSelect: () => void }
+  button(type='button' onClick={onSelect} aria-current={active || undefined} className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors', active ? 'bg-surface' : 'hover:bg-surface/60')})
+    ContactAvatar(name={contact.name})
+    span(className='min-w-0 flex-1')
+      span(className='flex items-center gap-1.5')
+        span(className='truncate text-[14.5px]') #{contact.name}
+        if contact.favorite
+          Icon(name='star' size={12} className='m-0 shrink-0 text-warning')
+      span(className='block truncate text-xs text-muted-foreground') #{[contact.company, contact.mobile || contact.email].filter(Boolean).join(' · ') || 'No details yet'}
+    if walletCount > 0
+      span(className='inline-flex shrink-0 items-center gap-1 rounded-full bg-surface px-2 py-0.5 font-mono text-[10.5px] text-muted-foreground' title={`${walletCount} wallet address${walletCount === 1 ? '' : 'es'}`})
+        Icon(name='wallet' size={11} className='m-0')
+        | #{walletCount}
+
+component DetailRow
+  props { label, value }: { label: string; value: string }
+  if value
+    div(className='flex items-baseline justify-between gap-4 border-b border-border py-2 text-sm last:border-b-0')
+      span(className='eyebrow shrink-0') #{label}
+      span(className='min-w-0 truncate text-right') #{value}
+
+component ContactDetail
+  props { contact, wallets, onEdit, onClose }: { contact: Contact; wallets: Wallet[]; onEdit: () => void; onClose: () => void }
+  setup
+    const navigate = useNavigate()
+    const [confirming, setConfirming] = useState(false)
+  div(className='flex flex-col gap-1.5')
+    div(className='panel p-5')
+      div(className='flex items-start gap-4')
+        ContactAvatar(name={contact.name} size='lg')
+        div(className='min-w-0 flex-1')
+          h3(className='truncate text-lg font-medium tracking-tight') #{contact.name}
+          p(className='truncate text-sm text-muted-foreground') #{contact.company || 'Personal contact'}
+        button(type='button' onClick={onClose} aria-label='Close details' className='grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-surface hover:text-foreground')
+          Icon(name='x' size={16} className='m-0')
+      div(className='mt-4')
+        DetailRow(label='Mobile' value={contact.mobile})
+        DetailRow(label='Email' value={contact.email})
+        DetailRow(label='Prefers' value={contact.channel})
+        DetailRow(label='Birthday' value={contact.birthday ? shortDate(contact.birthday) : ''})
+        DetailRow(label='Address' value={contact.address})
+      if contact.notes
+        p(className='mt-3 whitespace-pre-wrap text-sm text-muted-foreground') #{contact.notes}
+      if contact.mobile || contact.email
+        div(className='mt-4')
+          ChannelLinks(contact={{ phone: contact.mobile, email: contact.email }} message={`Hi ${contact.name.split(' ')[0]}, `} compact)
+      div(className='mt-4 flex flex-wrap gap-2')
+        CtaButton(label='Edit' icon='pencil' size='sm' onClick={onEdit})
+        CtaButton(label={contact.favorite ? 'Unfavourite' : 'Favourite'} icon='star' size='sm' variant='ghost' onClick={() => updateContact(contact.id, { favorite: !contact.favorite })})
+        if confirming
+          CtaButton(label='Delete contact and wallets' icon='trash' size='sm' variant='danger' onClick={() => { deleteContact(contact.id); onClose() }})
+        else
+          CtaButton(label='Delete' icon='trash' size='sm' variant='danger' onClick={() => setConfirming(true)})
+    Panel(title='Wallets' count={wallets.length})
+      div(className='px-2')
+        each wallet in wallets key wallet.id
+          WalletRow(wallet={wallet})
+        empty
+          p(className='py-4 text-center text-sm text-muted-foreground') No wallet addresses saved.
+        CtaButton(label='Add wallet address' icon='plus' size='sm' className='mt-2 w-full' onClick={() => navigate({ to: '/crypto', search: { owner: contact.id } })})
+
+props {}: {}
+setup
+  const { contacts, wallets } = useContacts()
+  const [query, setQuery] = useState('')
+  const [pane, setPane] = useState<Pane>({ mode: 'new' })
+  const needle = query.trim().toLowerCase()
+  const list = contacts.filter((contact) => needle === '' || matches(contact, needle)).sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name))
+  const selected = pane.mode === 'new' ? null : contacts.find((contact) => contact.id === pane.id) ?? null
+  const walletsOf = (id: string) => wallets.filter((wallet) => wallet.owner === id)
+  const actions = createElement(ContactsActions, { query, onQuery: setQuery, onNew: () => setPane({ mode: 'new' }) })
+
+div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(title='Contacts' description='People you work with, how to reach them, and their wallet addresses.' actions={actions})
+  div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_400px]')
+    Shell
+      Panel(title='All contacts' count={list.length} caption={contacts.some((contact) => contact.favorite) ? 'Favourites first' : 'A–Z'})
+        div(className='flex flex-col gap-0.5')
+          each contact in list key contact.id
+            ContactRow(contact={contact} walletCount={walletsOf(contact.id).length} active={selected?.id === contact.id} onSelect={() => setPane({ mode: 'view', id: contact.id })})
+          empty
+            div(className='flex flex-col items-center gap-2 py-12 text-center text-muted-foreground')
+              Icon(name='users' size={32} className='m-0 opacity-40')
+              p(className='text-sm') #{needle ? 'No contacts match your search.' : 'No contacts yet. Add your first one.'}
+    div(className='lg:sticky lg:top-4')
+      if pane.mode === 'edit' && selected
+        Shell(title={`Edit ${selected.name}`} icon='pencil')
+          ContactForm(key={selected.id} contact={selected} onSaved={() => setPane({ mode: 'view', id: selected.id })} onCancel={() => setPane({ mode: 'view', id: selected.id })})
+      elseif selected
+        ContactDetail(contact={selected} wallets={walletsOf(selected.id)} onEdit={() => setPane({ mode: 'edit', id: selected.id })} onClose={() => setPane({ mode: 'new' })})
+      else
+        Shell(title='New contact' icon='user-plus')
+          ContactForm(key='new' onSaved={(contact) => setPane({ mode: 'view', id: contact.id })})

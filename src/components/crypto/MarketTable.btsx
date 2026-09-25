@@ -1,0 +1,34 @@
+import { cn } from '@/lib/utils'
+import { coinLogo, phpPrice, signedPercent, usd, usdCompact, type Coin } from '@/lib/crypto/market'
+
+module
+  const changeClass = (value: number) => (value >= 0 ? 'text-success-foreground' : 'text-destructive-foreground')
+
+// Top coins by market cap, priced in dollars and pesos.
+props { coins, usdPhp }: { coins: readonly Coin[]; usdPhp: number }
+
+div(className='-mx-1 overflow-x-auto')
+  table(className='w-full min-w-[560px] border-collapse text-sm')
+    thead
+      tr(className='eyebrow text-left')
+        th(className='w-8 px-2 pb-2 font-normal') #
+        th(className='px-2 pb-2 font-normal') Coin
+        th(className='px-2 pb-2 text-right font-normal') USD
+        th(className='px-2 pb-2 text-right font-normal') PHP
+        th(className='px-2 pb-2 text-right font-normal') 24h
+        th(className='hidden px-2 pb-2 text-right font-normal lg:table-cell') 7d
+        th(className='hidden px-2 pb-2 text-right font-normal xl:table-cell') Market cap
+    tbody
+      each coin in coins key coin.id
+        tr(className='border-t border-border')
+          td(className='px-2 py-2.5 font-mono text-xs text-muted-foreground numeral') #{coin.rank}
+          td(className='px-2 py-2.5')
+            div(className='flex min-w-0 items-center gap-2.5')
+              img(src={coinLogo(coin.id)} alt='' width={22} height={22} loading='lazy' className='size-5.5 shrink-0 rounded-full')
+              span(className='truncate') #{coin.name}
+              span(className='font-mono text-[11px] text-muted-foreground') #{coin.symbol}
+          td(className='px-2 py-2.5 text-right font-mono numeral') #{usd(coin.priceUsd)}
+          td(className='px-2 py-2.5 text-right font-mono text-muted-foreground numeral') #{phpPrice(coin.priceUsd * usdPhp)}
+          td(className={cn('px-2 py-2.5 text-right font-mono text-xs numeral', changeClass(coin.change24h))}) #{signedPercent(coin.change24h)}
+          td(className={cn('hidden px-2 py-2.5 text-right font-mono text-xs numeral lg:table-cell', changeClass(coin.change7d))}) #{signedPercent(coin.change7d)}
+          td(className='hidden px-2 py-2.5 text-right font-mono text-xs text-muted-foreground numeral xl:table-cell') #{usdCompact(coin.marketCapUsd)}

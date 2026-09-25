@@ -1,0 +1,41 @@
+import { useEffect, useState } from 'octane'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import ChainBadge from './ChainBadge.btsx'
+import { CHAINS, shortAddress } from '@/lib/contacts/chains'
+import { deleteWallet } from '@/lib/contacts/store'
+import type { Wallet } from '@/lib/contacts/types'
+
+module
+  const ICON_BUTTON = 'grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-surface hover:text-foreground'
+
+// One saved address: chain, label, shortened address, copy / explorer / delete.
+props { wallet, owner }: { wallet: Wallet; owner?: string }
+setup
+  const [copied, setCopied] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+  const copy = () => {
+    void navigator.clipboard.writeText(wallet.address).then(() => setCopied(true))
+  }
+
+div(className='flex items-center gap-3 border-b border-border py-3 last:border-b-0')
+  ChainBadge(chain={wallet.chain})
+  div(className='min-w-0 flex-1')
+    p(className='truncate text-[14px]') #{owner ? `${wallet.label} · ${owner}` : wallet.label}
+    p(className='truncate font-mono text-[11.5px] text-muted-foreground' title={wallet.address}) #{shortAddress(wallet.address)}
+    if wallet.note
+      p(className='truncate text-xs text-muted-foreground') #{wallet.note}
+  button(type='button' onClick={copy} aria-label={`Copy ${CHAINS[wallet.chain].label} address`} title={copied ? 'Copied' : 'Copy address'} className={cn(ICON_BUTTON, copied && 'text-success')})
+    Icon(name={copied ? 'check' : 'copy'} size={15} className='m-0')
+  a(href={CHAINS[wallet.chain].explorer(wallet.address)} target='_blank' rel='noopener noreferrer' aria-label='Open in block explorer' title='Open in block explorer' className={ICON_BUTTON})
+    Icon(name='external-link' size={15} className='m-0')
+  if confirming
+    button(type='button' onClick={() => deleteWallet(wallet.id)} onBlur={() => setConfirming(false)} autoFocus className='h-8 shrink-0 rounded-full border border-destructive/40 px-3 text-[12px] text-destructive-foreground hover:bg-destructive/10') Remove
+  else
+    button(type='button' onClick={() => setConfirming(true)} aria-label='Remove address' title='Remove address' className={cn(ICON_BUTTON, 'hover:text-destructive-foreground')})
+      Icon(name='trash' size={15} className='m-0')

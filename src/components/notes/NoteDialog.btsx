@@ -1,0 +1,38 @@
+import { createElement } from 'octane'
+import { Dialog } from '@octanejs/base-ui/dialog'
+import NoteFields, { ToolButton } from './NoteFields.btsx'
+import { noteBackground } from '@/lib/notes/colors'
+import { addClip, appendToBody, deleteNote, removeClip, updateNote } from '@/lib/notes/store'
+import { dateTime } from '@/lib/insurance/format'
+import type { Note } from '@/lib/notes/types'
+
+component DialogActions
+  props { note, onClose }: { note: Note; onClose: () => void }
+  ToolButton(icon='archive' label={note.archived ? 'Unarchive' : 'Archive'} onClick={() => { updateNote(note.id, { archived: !note.archived, pinned: false }); onClose() }})
+  ToolButton(icon='trash' label='Delete note' onClick={() => { deleteNote(note.id); onClose() }})
+
+// Edits a saved note in place; every change is written straight to the store.
+props { note, onClose }: { note: Note | null; onClose: () => void }
+
+Dialog.Root(open={note !== null} onOpenChange={(open: boolean) => { if (!open) onClose() }})
+  Dialog.Portal
+    Dialog.Backdrop(className='fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0')
+    Dialog.Popup(className='fixed top-1/2 left-1/2 z-50 w-[min(640px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0' style={{ background: note ? noteBackground(note.color) : undefined }})
+      Dialog.Title(className='sr-only') #{note?.title || 'Edit note'}
+      if note
+        div
+          NoteFields(
+            ~ title={note.title}
+            ~ body={note.body}
+            ~ color={note.color}
+            ~ pinned={note.pinned}
+            ~ clips={note.clips}
+            ~ autoFocus='body'
+            ~ onChange={(patch) => updateNote(note.id, patch)}
+            ~ onAppend={(text) => appendToBody(note.id, text)}
+            ~ onAddClip={(clip) => addClip(note.id, clip)}
+            ~ onRemoveClip={(clip) => removeClip(note.id, clip.id)}
+            ~ onDone={onClose}
+            ~ actions={createElement(DialogActions, { note, onClose })}
+            ~ )
+          p(className='px-4 pb-3 text-right font-mono text-[10.5px] text-muted-foreground') #{`Edited ${dateTime(note.updatedDate)}`}

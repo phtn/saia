@@ -71,5 +71,5 @@ div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
           p(className='py-10 text-center text-sm text-muted-foreground') Nothing due.
     Shell(title='New task' icon='plus')
       div(className='panel p-5')
-        FieldGrid(fields={fields} values={form.values} onChange={form.setValue})
-        CtaButton(label='Add task' icon='plus' variant='solid' className='mt-5 w-full' onClick={() => void add()})
+        FieldGrid(form={form} fields={fields})
+        CtaButton(label='Add task' icon='plus' variant='solid' className='mt-5 w-full' onClick={() => void form.submit()})

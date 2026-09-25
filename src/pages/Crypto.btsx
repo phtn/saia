@@ -1,0 +1,131 @@
+import { createElement, useState } from 'octane'
+import { Link, useNavigate, useSearch } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import Segmented from '@/components/kit/Segmented.btsx'
+import MarketTable from '@/components/crypto/MarketTable.btsx'
+import ShadowPortfolio from '@/components/crypto/ShadowPortfolio.btsx'
+import HoldingForm from '@/components/crypto/HoldingForm.btsx'
+import StatTile from '@/components/kit/StatTile.btsx'
+import ContactAvatar from '@/components/contacts/ContactAvatar.btsx'
+import WalletForm from '@/components/contacts/WalletForm.btsx'
+import WalletRow from '@/components/contacts/WalletRow.btsx'
+import { CHAINS } from '@/lib/contacts/chains'
+import { useContacts } from '@/lib/contacts/store'
+import { refreshMarket, useMarket } from '@/lib/crypto/market'
+import { useHoldings } from '@/lib/crypto/holdings'
+import { timeAgo, useNow } from '@/lib/notes/time'
+import type { Wallet } from '@/lib/contacts/types'
+import type { Contact } from '@/lib/contacts/types'
+
+module
+  export type CryptoTab = 'market' | 'portfolio' | 'wallets'
+
+  const matches = (wallet: Wallet, ownerName: string, query: string) =>
+    [wallet.label, wallet.address, wallet.note, CHAINS[wallet.chain].label, CHAINS[wallet.chain].symbol, ownerName].join(' ').toLowerCase().includes(query)
+
+component CryptoActions
+  props { tab, query, onQuery, loading, updatedAt, now }: { tab: CryptoTab; query: string; onQuery: (value: string) => void; loading: boolean; updatedAt: string; now: number }
+  if tab === 'wallets'
+    label(className='relative flex h-8 w-44 items-center lg:w-64')
+      span(className='pointer-events-none absolute left-3 flex text-muted-foreground')
+        Icon(name='search' size={14} className='m-0')
+      input(type='search' value={query} placeholder='Search label, address, chain' aria-label='Search wallets' onInput={(event) => onQuery(event.currentTarget.value)} className='h-8 w-full rounded-full border border-border bg-card pr-3 pl-8 text-[13px] outline-none placeholder:text-muted-foreground focus:border-ring')
+  else
+    button(type='button' onClick={() => void refreshMarket()} disabled={loading} title='Refresh prices' className='inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60')
+      Icon(name={loading ? 'spinner-ring' : 'refresh'} size={14} className='m-0')
+      span(className='font-mono text-[11px]') #{loading ? 'Updating…' : updatedAt ? `Prices ${timeAgo(updatedAt, now)}` : 'Load prices'}
+
+component WalletsView
+  props { contacts, wallets, needle, owner }: { contacts: readonly Contact[]; wallets: readonly Wallet[]; needle: string; owner?: string }
+  setup
+    const nameOf = (id: string) => (id === 'me' ? 'Me' : contacts.find((contact) => contact.id === id)?.name ?? 'Unknown')
+    const visible = wallets.filter((wallet) => needle === '' || matches(wallet, nameOf(wallet.owner), needle))
+    const mine = visible.filter((wallet) => wallet.owner === 'me')
+    const groups = contacts
+      .map((contact) => ({ contact, wallets: visible.filter((wallet) => wallet.owner === contact.id) }))
+      .filter((group) => group.wallets.length > 0)
+      .sort((a, b) => a.contact.name.localeCompare(b.contact.name))
+    const theirs = wallets.filter((wallet) => wallet.owner !== 'me')
+    const chainCount = new Set(wallets.map((wallet) => wallet.chain)).size
+  div(className='flex flex-col gap-4')
+    div(className='grid grid-cols-3 gap-1.5')
+      StatTile(label='My wallets' value={wallets.length - theirs.length} caption='Addresses you own')
+      StatTile(label='Contacts’ wallets' value={theirs.length} caption={`${new Set(theirs.map((wallet) => wallet.owner)).size} contacts`})
+      StatTile(label='Networks' value={chainCount} caption={chainCount ? [...new Set(wallets.map((wallet) => CHAINS[wallet.chain].symbol))].join(' · ') : 'None yet'})
+    div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_400px]')
+      div(className='flex flex-col gap-4')
+        Shell(title='My wallets' icon='wallet')
+          Panel
+            div(className='px-2')
+              each wallet in mine key wallet.id
+                WalletRow(wallet={wallet})
+              empty
+                p(className='py-8 text-center text-sm text-muted-foreground') #{needle ? 'No wallet of yours matches.' : 'Save your own receiving addresses to share them quickly.'}
+        Shell(title='Contacts’ wallets' icon='users' className='')
+          each group in groups key group.contact.id
+            Panel
+              div(className='px-2 ')
+                Link(to='/contacts' className='flex items-center gap-2.5 pb-1 hover:underline')
+                  ContactAvatar(name={group.contact.name})
+                  span(className='text-[14.5px] font-medium') #{group.contact.name}
+                each wallet in group.wallets key wallet.id
+                  WalletRow(wallet={wallet})
+          empty
+            Panel
+              p(className='py-8 text-center text-sm text-muted-foreground') #{needle ? 'No contact wallet matches.' : contacts.length === 0 ? 'Add contacts first, then save their addresses here.' : 'No contact addresses saved yet.'}
+      div(className='lg:sticky lg:top-4')
+        Shell(title='Add wallet address' icon='plus')
+          WalletForm(key={owner ?? 'me'} contacts={contacts} owner={owner})
+
+props {}: {}
+setup
+  const { contacts, wallets } = useContacts()
+  const market = useMarket()
+  const holdings = useHoldings()
+  const now = useNow()
+  const search = useSearch({ from: '/crypto' })
+  const navigate = useNavigate()
+  const tab: CryptoTab = search.tab ?? (search.owner ? 'wallets' : 'market')
+  const setTab = (value: string) => navigate({ to: '/crypto', search: { tab: value === 'portfolio' || value === 'wallets' ? value : 'market' } })
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const tabs = [
+    { value: 'market', label: 'Market' },
+    { value: 'portfolio', label: 'Shadow portfolio', count: holdings.length },
+    { value: 'wallets', label: 'Wallets', count: wallets.length }
+  ]
+  const actions = createElement(CryptoActions, { tab, query, onQuery: setQuery, loading: market.status === 'loading', updatedAt: market.updatedAt, now })
+  const description = tab === 'wallets' ? 'Public wallet addresses for you and your contacts. Addresses only, never keys.' : `Live prices from CoinMarketCap${market.usdPhp ? ` · $1 = ₱${market.usdPhp.toFixed(2)}` : ''}`
+
+div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(title='Crypto' description={description} actions={actions})
+  div(className='mb-4 max-w-md ')
+    Segmented(label='Crypto view' options={tabs} value={tab} onChange={setTab})
+  if market.error && tab !== 'wallets'
+    p(role='alert' className='mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive-foreground')
+      Icon(name='alert' size={15} className='m-0 shrink-0')
+      | #{market.coins.length > 0 ? `Showing saved prices. ${market.error}` : market.error}
+  switch tab
+    case 'market'
+      Shell(title='Top 10 by market cap' className=' infinite-lines' icon='trending' actions={market.usdPhp ? createElement('span', { className: 'font-mono text-[11px] text-muted-foreground' }, `USD/PHP ${market.usdPhp.toFixed(2)}`) : undefined})
+        Panel
+          if market.coins.length > 0
+            MarketTable(coins={market.coins.slice(0, 10)} usdPhp={market.usdPhp})
+          else
+            p(className='py-10 text-center text-sm text-muted-foreground') #{market.status === 'error' ? 'Prices are unavailable right now.' : 'Loading prices…'}
+    case 'portfolio'
+      div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]')
+        Shell(title='Shadow portfolio' icon='wallet')
+          Panel
+            ShadowPortfolio(coins={market.coins} usdPhp={market.usdPhp})
+        div(className='lg:sticky lg:top-4')
+          Shell(title='Add asset' icon='plus')
+            div(className='panel p-5')
+              HoldingForm(coins={market.coins})
+              p(className='mt-3 text-xs text-muted-foreground') Adding a coin you already hold increases that position. Edit amounts in the list to try “what if” totals.
+    case 'wallets'
+      WalletsView(contacts={contacts} wallets={wallets} needle={needle} owner={search.owner})

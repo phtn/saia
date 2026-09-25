@@ -1,0 +1,51 @@
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import { addHolding } from '@/lib/crypto/holdings'
+import type { Coin } from '@/lib/crypto/market'
+import type { FieldDef, FormValues } from '@/lib/insurance/types'
+
+module
+  const coinOption = (coin: Coin) => `${coin.symbol} · ${coin.name}`
+
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  const parseAmount = (value: string) => Number(value.replace(/,/g, ''))
+
+// Add a simulated position: pick a coin from the top 100 and how much of it.
+props { coins }: { coins: readonly Coin[] }
+setup
+  const fields: FieldDef[] = [
+    { key: 'coin', label: 'Coin', type: 'select', required: true, wide: true, options: coins.map(coinOption), aliases: ['asset', 'token', 'crypto'] },
+    {
+      key: 'amount',
+      label: 'Amount',
+      type: 'text',
+      required: true,
+      placeholder: '0.25',
+      aliases: ['quantity', 'how much'],
+      validate: (value) => {
+        const amount = parseAmount(String(value))
+        return Number.isFinite(amount) && amount > 0 ? undefined : 'Enter an amount above zero.'
+      }
+    },
+    { key: 'note', label: 'Note', type: 'text', placeholder: 'Optional', aliases: ['memo'] }
+  ]
+  let saveRef: () => string = () => ''
+  const form = useFlowForm({ id: 'holding-new', title: 'Add to shadow portfolio', initial: {}, fields, nextStepId: () => null, onSubmit: () => saveRef() })
+  const save = (): string => {
+    const coin = coins.find((item) => coinOption(item) === text(form.values, 'coin'))
+    const amount = parseAmount(text(form.values, 'amount'))
+    if (!coin || !(amount > 0)) return 'Pick a coin and an amount.'
+    addHolding({ coinId: coin.id, symbol: coin.symbol, name: coin.name, amount, note: text(form.values, 'note') })
+    form.reset({})
+    return `Added ${amount} ${coin.symbol}.`
+  }
+  saveRef = save
+
+form(noValidate onSubmit={(event) => { event.preventDefault(); void form.submit() }})
+  FieldGrid(form={form} fields={fields})
+  CtaButton(type='submit' label='Add asset' icon='plus' variant='solid' className='mt-4 w-full' disabled={coins.length === 0})

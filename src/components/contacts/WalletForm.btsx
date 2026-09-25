@@ -1,0 +1,75 @@
+import { Icon } from '@/lib/icons'
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import { CHAINS, CHAIN_IDS, addressError, chainByLabel } from '@/lib/contacts/chains'
+import { addWallet, duplicateWallet } from '@/lib/contacts/store'
+import type { Contact } from '@/lib/contacts/types'
+import type { FieldDef, FormValues } from '@/lib/insurance/types'
+
+module
+  export interface WalletFormProps {
+    contacts: readonly Contact[]
+    /** Contact id to preselect as the owner; defaults to you. */
+    owner?: string
+  }
+
+  const ME = 'Me'
+
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+// Save a public address for you or a contact. The address is checked against the chosen chain.
+props { contacts, owner }: WalletFormProps
+setup
+  const ownerName = (id: string | undefined) => contacts.find((contact) => contact.id === id)?.name ?? ME
+  const fields: FieldDef[] = [
+    { key: 'owner', label: 'Belongs to', type: 'select', required: true, options: [ME, ...contacts.map((contact) => contact.name)], aliases: ['owner', 'whose'] },
+    { key: 'chain', label: 'Network', type: 'select', required: true, options: CHAIN_IDS.map((id) => CHAINS[id].label), aliases: ['chain', 'blockchain', 'coin'] },
+    {
+      key: 'address',
+      label: 'Public address',
+      type: 'text',
+      required: true,
+      wide: true,
+      placeholder: 'Paste the receiving address',
+      hint: 'Public receiving address only. Never a private key or recovery phrase.',
+      aliases: ['wallet address', 'address'],
+      dependsOn: ['chain'],
+      validate: (value, values) => {
+        const chain = chainByLabel(text(values, 'chain'))
+        const problem = addressError(chain, String(value))
+        if (problem) return problem
+        const existing = chain ? duplicateWallet(chain, String(value)) : undefined
+        return existing ? `Already saved as “${existing.label}”.` : undefined
+      }
+    },
+    { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'Ledger · savings', aliases: ['name', 'nickname'] },
+    { key: 'note', label: 'Note', type: 'text', placeholder: 'Optional', aliases: ['memo'] }
+  ]
+  const initial: FormValues = { owner: ownerName(owner) }
+
+  let saveRef: () => string = () => ''
+  const form = useFlowForm({ id: 'wallet-new', title: 'New wallet address', initial, fields, nextStepId: () => null, onSubmit: () => saveRef() })
+  const save = (): string => {
+    const values = form.values
+    const chain = chainByLabel(text(values, 'chain'))
+    const address = text(values, 'address')
+    const problem = chain ? addressError(chain, address) : 'Pick a network.'
+    if (!chain || problem || address === '' || text(values, 'label') === '') return problem ?? 'The address and label are required.'
+    const ownerLabel = text(values, 'owner')
+    const ownerId = ownerLabel === ME ? 'me' : contacts.find((contact) => contact.name === ownerLabel)?.id ?? 'me'
+    addWallet({ chain, address, label: text(values, 'label'), note: text(values, 'note'), owner: ownerId })
+    form.reset({ owner: ownerLabel, chain: text(values, 'chain') })
+    return `${CHAINS[chain].label} address saved.`
+  }
+  saveRef = save
+
+form(noValidate className='panel p-5' onSubmit={(event) => { event.preventDefault(); void form.submit() }})
+  FieldGrid(form={form} fields={fields})
+  div(className='mt-4 flex items-start gap-2 rounded-lg border border-border bg-surface/60 p-3 text-xs leading-5 text-muted-foreground')
+    Icon(name='lock' size={14} className='m-0 mt-0.5 shrink-0')
+    p Saved on this device only. Anyone who has a private key or recovery phrase controls the funds, so SAIA refuses to store them.
+  CtaButton(type='submit' label='Save address' icon='plus' variant='solid' className='mt-4 w-full')

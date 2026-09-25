@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import Toggle from '@/components/kit/Toggle.btsx'
-import { peso, toNumber } from '@/lib/insurance/format'
+import DatePicker from '@/components/ui/DatePicker.btsx'
+import { isoDate, peso, toNumber } from '@/lib/insurance/format'
 import type { FieldDef, FieldValue } from '@/lib/insurance/types'
 
 module
@@ -8,16 +9,27 @@ module
     field: FieldDef
     value: FieldValue | undefined
     onChange: (key: string, value: FieldValue) => void
+    /** Marks the TanStack field touched and runs its onBlur validators. */
+    onBlur?: () => void
     error?: string
   }
 
-  const INPUT_TYPES: Record<string, string> = { text: 'text', email: 'email', tel: 'tel', number: 'number', date: 'date' }
+  const INPUT_TYPES: Record<string, string> = { text: 'text', email: 'email', tel: 'tel', number: 'number' }
 
-props { field, value, onChange, error }: FieldInputProps
+  /** Form values hold dates as local `YYYY-MM-DD`; parse without the UTC shift `new Date(iso)` applies. */
+  const fromIso = (value: string): Date | undefined => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : undefined
+  }
+
+  const yearsFromNow = (years: number) => new Date(new Date().getFullYear() + years, years < 0 ? 0 : 11)
+
+props { field, value, onChange, onBlur, error }: FieldInputProps
 setup
   const id = `field-${field.key}`
   const text = typeof value === 'string' ? value : ''
   const describedBy = error ? `${id}-error` : field.hint ? `${id}-hint` : undefined
+  const isBirthdate = field.key.includes('birth')
   const moneyPreview = field.type === 'money' && text !== '' ? peso(toNumber(text.replace(/[₱,\s]/g, ''))) : ''
 
 if field.type === 'boolean'
@@ -35,18 +47,31 @@ else
         span(className='text-accent-brand' aria-hidden={true}) *
     switch field.type
       case 'select'
-        select(id={id} value={text} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onChange={(event) => onChange(field.key, event.currentTarget.value)} className='field-input appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-9')
+        select(id={id} value={text} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onChange={(event) => onChange(field.key, event.currentTarget.value)} onBlur={onBlur} className='field-input appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-9')
           option(value='') Select…
           each option in field.options ?? [] key option
             option(value={option}) #{option}
       case 'textarea'
-        textarea(id={id} value={text} rows={3} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} className='field-input h-auto py-2.5')
+        textarea(id={id} value={text} rows={3} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} onBlur={onBlur} className='field-input h-auto py-2.5')
+      case 'date'
+        DatePicker(
+          ~ id={id}
+          ~ value={fromIso(text)}
+          ~ onChange={(date) => onChange(field.key, date ? isoDate(date) : '')}
+          ~ placeholder={field.placeholder ?? 'Pick a date'}
+          ~ captionLayout='dropdown'
+          ~ startMonth={isBirthdate ? new Date(1920, 0) : yearsFromNow(-10)}
+          ~ endMonth={isBirthdate ? new Date() : yearsFromNow(10)}
+          ~ disabled={isBirthdate ? { after: new Date() } : undefined}
+          ~ invalid={Boolean(error)}
+          ~ aria-describedby={describedBy}
+          ~ )
       case 'money'
         div(className='relative')
           span(className='pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground') #{'₱'}
-          input(id={id} value={text} inputMode='decimal' placeholder={field.placeholder ?? '0.00'} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value.replace(/[^\d.]/g, ''))} className='field-input pl-7 font-mono numeral')
+          input(id={id} value={text} inputMode='decimal' placeholder={field.placeholder ?? '0.00'} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value.replace(/[^\d.]/g, ''))} onBlur={onBlur} className='field-input pl-7 font-mono numeral')
       default
-        input(id={id} type={INPUT_TYPES[field.type] ?? 'text'} value={text} min={field.min} max={field.max} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} className={cn('field-input', (field.type === 'number' || field.type === 'tel') && 'font-mono numeral')})
+        input(id={id} type={INPUT_TYPES[field.type] ?? 'text'} value={text} min={field.min} max={field.max} placeholder={field.placeholder} aria-invalid={error ? true : undefined} aria-describedby={describedBy} onInput={(event) => onChange(field.key, event.currentTarget.value)} onBlur={onBlur} className={cn('field-input', (field.type === 'number' || field.type === 'tel') && 'font-mono numeral')})
     if error
       p(id={`${id}-error`} className='text-xs text-destructive') #{error}
     elseif field.hint

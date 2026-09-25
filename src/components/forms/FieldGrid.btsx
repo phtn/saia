@@ -1,16 +1,16 @@
-import FieldInput from './FieldInput.btsx'
-import type { FieldDef, FieldValue, FormValues } from '@/lib/insurance/types'
+import FormField from './FormField.btsx'
+import type { FlowForm } from '@/lib/forms/useFlowForm'
+import type { FieldDef } from '@/lib/insurance/types'
 
 module
   export interface FieldGridProps {
+    form: FlowForm
     fields: readonly FieldDef[]
-    values: FormValues
-    onChange: (key: string, value: FieldValue) => void
     errors?: Record<string, string>
   }
 
-props { fields, values, onChange, errors = {} }: FieldGridProps
+props { form, fields, errors = {} }: FieldGridProps
 
 div(className='grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2')
   each field in fields key field.key
-    FieldInput(field={field} value={values[field.key]} onChange={onChange} error={errors[field.key]})
+    FormField(form={form} field={field} error={errors[field.key]})

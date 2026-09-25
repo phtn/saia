@@ -23,14 +23,17 @@ export const navGroups: NavGroup[] = [
       { href: '/quote', icon: 'quote', label: 'New quote', title: 'New quote', description: 'Quote any product', value: '', tags: ['quote', 'new'] },
       { href: '/mobile', icon: 'smartphone', label: 'Mobile', title: 'Mobile insurance', description: 'Scan IMEI and quote a phone', value: '', tags: ['cellphone', 'imei', 'device'] },
       { href: '/policies', icon: 'policy', label: 'Policies', title: 'Policies', description: 'Quotes and policies in your book', value: '', tags: ['policies', 'quotes'] },
-      { href: '/claims', icon: 'claim', label: 'Claims', title: 'Claims', description: 'File and track claims', value: '', tags: ['claims'] }
+      { href: '/claims', icon: 'claim', label: 'Claims', title: 'Claims', description: 'File and track claims', value: '', tags: ['claims'] },
+      { href: '/contacts', icon: 'users', label: 'Contacts', title: 'Contacts', description: 'People and how to reach them', value: '', tags: ['contacts', 'people', 'address book'] },
+      { href: '/crypto', icon: 'coins', label: 'Crypto', title: 'Crypto wallets', description: 'Your and your contacts’ wallet addresses', value: '', tags: ['crypto', 'wallet', 'bitcoin', 'ethereum', 'address'] }
     ]
   },
   {
     title: 'Manager',
     items: [
       { href: '/analytics', icon: 'analytics', label: 'Analytics', title: 'Analytics', description: 'Production and motor book', value: '', tags: ['analytics', 'reports'] },
-      { href: '/tasks', icon: 'calendar', label: 'Tasks', title: 'Tasks', description: 'Follow-ups and reminders', value: '', tags: ['tasks', 'reminders'] }
+      { href: '/tasks', icon: 'calendar', label: 'Tasks', title: 'Tasks', description: 'Follow-ups and reminders', value: '', tags: ['tasks', 'reminders'] },
+      { href: '/notes', icon: 'note', label: 'Notes', title: 'Notes', description: 'Jot, dictate and record', value: '', tags: ['notes', 'voice', 'recording', 'memo'] }
     ]
   }
 ]
