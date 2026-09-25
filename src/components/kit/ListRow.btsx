@@ -38,7 +38,7 @@ component RowBody
           span(className={cn('truncate', item.tone && TONE_CLASSES[item.tone].text)}) #{item.text}
 
 props { icon, title, meta = [], badgeTone, trailing, onClick, className }: ListRowProps
-setup const rowClass = cn('flex w-full items-center gap-3.5 border-b border-border py-3 text-left last:border-b-0', onClick && 'cursor-pointer transition-colors hover:bg-surface/70', className)
+setup const rowClass = cn('flex w-full items-center gap-3.5 p-3 text-left', onClick && 'cursor-pointer transition-colors hover:bg-surface/70', className)
 
 if onClick
   button(type='button' className={rowClass} onClick={onClick})

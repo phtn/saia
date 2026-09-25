@@ -16,16 +16,16 @@ module
 props { title, count, caption, actions, className, bodyClassName, children }: PanelProps
 setup const hasHeader = Boolean(title || caption || actions)
 
-div(className={cn('panel', className)})
+div(className={cn('panel p-3 space-y-4', className)})
   if hasHeader
     div(className='flex items-center justify-between gap-3 px-5 pt-4')
       div(className='flex min-w-0 items-center gap-2')
         if title
           h3(className='truncate text-[15px] font-medium tracking-tight') #{title}
         if count !== undefined
-          span(className='rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground numeral') #{count}
+          span(className='flex items-center justify-center rounded-full bg-sidebar size-7 font-medium text-sm leading-none text-muted-foreground numeral') #{count}
       div(className='flex shrink-0 items-center gap-3')
         if caption
           span(className='eyebrow hidden sm:inline') #{caption}
         | #{actions}
-  div(className={cn('p-5', hasHeader && 'pt-4', bodyClassName)}) #{children}
+  div(className={cn('divide-y divide-border rounded-lg overflow-hidden', hasHeader && 'pt-1.5', bodyClassName)}) #{children}

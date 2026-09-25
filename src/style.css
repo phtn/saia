@@ -2,10 +2,33 @@
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
-
+/*:root {
+  --page: #ffffff;
+  --guide: oklch(0.9197 0.004 286.32);
+  --tray: oklch(0.971 0.004 286.33);
+  --tray-line: #e6e6e9;
+  --control-line: oklch(0.9147 0.0055 297.72);
+  --tile: oklch(0.9704 0.0013 286.38);
+  --muted: oklch(0.5893 0.0136 285.98);
+  --faint: #a1a1aa;
+  --orange: #ff6a13;
+  --green: #00b86b;
+  --focus: 0 0 0 4px rgb(255 106 19 / 14%);
+  --shadow-card: 0 1px 1.75px rgb(24 24 27 / 4%), 0 1px 1px rgb(24 24 27 / 2%);
+  --shadow-control: 0 1px 2px rgb(24 24 27 / 6%);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--ink);
+  background: var(--page);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}*/
 @theme inline {
   --font-sans: 'OKX', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --topbar-height: 64px;
   --text-2xs: 10px;
   --color-background: var(--background);
@@ -40,10 +63,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-lines: var(--lines);
   --color-input: var(--input);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -95,10 +120,10 @@
   --card-foreground: oklch(0.17 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0 0);
-  --muted: oklch(0.955 0.003 286);
-  --muted-foreground: oklch(0.58 0.01 286);
+  --muted: oklch(0.9147 0.0055 297.72);
+  --muted-foreground: oklch(0.5893 0.0136 285.98);
   --soft: oklch(0.2046 0 0 / 50%);
-  --border: oklch(0.915 0.004 286);
+  --border: oklch(0.9197 0.004 286.32);
   --input: oklch(0.9 0.004 286);
   --ring: oklch(0.7 0.19 45);
   --primary: oklch(0.2 0 0);
@@ -123,6 +148,7 @@
   /* Step pipeline (from livesnaps' verification flow). */
   --active: oklch(0.6 0.21 255);
   --flow-done: oklch(0.7 0.16 162);
+  --lines: oklch(0.85 0.004 286.32);
   --chart-1: var(--accent-brand);
   --chart-2: var(--success);
   --chart-3: var(--warning);
@@ -147,7 +173,7 @@
   color-scheme: dark;
   --background: oklch(0.13 0 0);
   --shell: oklch(0.165 0 0);
-  --card: oklch(0.19 0 0);
+  --card: oklch(0.285 0 0);
   --surface: oklch(0.215 0 0);
   --surface-2: oklch(0.245 0 0);
   --foreground: oklch(0.96 0 0);
@@ -164,7 +190,8 @@
   --primary-foreground: oklch(0.17 0 0);
   --secondary: oklch(0.24 0 0);
   --secondary-foreground: oklch(0.96 0 0);
-  --accent: oklch(0.24 0 0);
+  --accent: oklch(0.329 0 0);
+  --accent-dark: oklch(0.2972 0 0);
   --accent-foreground: oklch(0.96 0 0);
   --accent-brand: oklch(0.77 0.15 55);
   --accent-brand-foreground: oklch(0.17 0 0);
@@ -180,6 +207,7 @@
   --neutral-dot: oklch(0.55 0 0);
   --active: oklch(0.68 0.18 255);
   --flow-done: oklch(0.74 0.16 162);
+  --lines: oklch(0.25 0 0);
   --sidebar: var(--background);
   --sidebar-foreground: oklch(0.96 0 0);
   --sidebar-primary: oklch(0.96 0 0);
@@ -270,7 +298,10 @@ a {
   font-size: 14px;
   color: var(--foreground);
   outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
   &::placeholder {
     color: var(--muted-foreground);
   }
@@ -285,8 +316,13 @@ a {
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .pulse-dot {
@@ -294,10 +330,33 @@ a {
 }
 
 @keyframes scan-line {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(100%); }
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(100%);
+  }
 }
 
 .scan-line {
   animation: scan-line 1.8s ease-in-out infinite alternate;
+}
+
+.infinite-lines {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    33deg,
+    /* slant angle: adjust for steeper/shallower lines */ transparent,
+    transparent 10px,
+    var(--lines) 10px,
+    /* line color */ var(--lines) 11px /* line thickness: 1px wide */
+  );
+}
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }

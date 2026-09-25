@@ -19,17 +19,18 @@ module
     // onNavigate: (to: string) => (event: MouseEvent) => void
   }
 
-  const SIDEBAR_CLASS = "hidden md:flex flex-col w-full h-[calc(100dvh-var(--topbar-height))] overflow-hidden"
-  const SIDEBAR_ITEM_CLASS = "flex w-full items-center gap-1.75 rounded-[12px] border py-1 pl-1 pr-[8px] text-left transition"
-  const SIDEBAR_ITEM_SELECTED_CLASS = "bg-card border-border shadow-[0_1px_2px_oklch(0_0_0/6%)]"
-  const SIDEBAR_ITEM_DEFAULT_CLASS = "border-transparent bg-transparent hover:bg-card/60"
+  const SIDEBAR_CLASS = "hidden md:flex flex-col w-full h-[calc(100dvh-var(--topbar-height))] dark:bg-background/70 border-t-[0.4px] border-sidebar-border overflow-hidden"
+  const SIDEBAR_ITEM_CLASS = "flex w-full items-center gap-1.75 rounded-[12px] border py-1 pl-1 pr-[8px] text-left transition-all duration-200 ease-out"
+  const SIDEBAR_ITEM_SELECTED_CLASS = "bg-[linear-gradient(in_oklab_180deg,oklab(95.2%_0_0)_0%,oklab(91.3%_0_0)_100%)]  shadow-[inset_0_1px_0_#FFFFFF54,0_2.5px_3.5px_-1px_#00000026,0_0_0_1px_#D4D4D4] bg-origin-border dark:bg-origin-border dark:bg-[linear-gradient(in_oklab_180deg,oklab(32%_0_0)_0%,oklab(25%_0_0)_100%)] dark:shadow-none dark:hover:brightness-115 hover:brightness-102 border-border/0"
+  const SIDEBAR_ITEM_DEFAULT_CLASS = "border-transparent bg-surface dark:bg-transparent hover:bg-sidebar/70 dark:hover:bg-sidebar"
   const SIDEBAR_ICON_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] bg-transparent"
-  const SIDEBAR_ICON_SELECTED_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] bg-surface"
+  const SIDEBAR_ICON_SELECTED_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] light:bg-background dark:bg-background/50 light:shadow-[0_0_4px_rgba(0,0,0,0.2)]"
   const SIDEBAR_ICON_CLASS = "m-0 text-muted-foreground/80"
   const SIDEBAR_LABEL_CLASS = "flex-1 font-sans font-medium text-muted-foreground text-sm md:text-[14px] leading-5 tracking-[-0.28px] truncate"
   const SIDEBAR_VALUE_CLASS = "ml-auto shrink-0 text-right font-mono text-2xs leading-none tabular-nums text-muted-foreground"
-  const SIDEBAR_SELECTED_TEXT_CLASS = "text-foreground"
+  const SIDEBAR_SELECTED_TEXT_CLASS = "text-primary"
   const SIDEBAR_ITEM_COMPACT_CLASS = "justify-center gap-0 p-1"
+  const SIDEBAR_ITEM_NESTED_CLASS = "ml-5 w-[calc(100%-1.25rem)] py-0.5 [&_span]:text-[13px]"
 
   export { SidebarNav }
 
@@ -41,7 +42,7 @@ component SidebarItem
     const itemClassName = cn(SIDEBAR_ITEM_CLASS, isSelected ? SIDEBAR_ITEM_SELECTED_CLASS : SIDEBAR_ITEM_DEFAULT_CLASS, isCompact && SIDEBAR_ITEM_COMPACT_CLASS)
     const labelClassName = cn(SIDEBAR_LABEL_CLASS, isSelected && SIDEBAR_SELECTED_TEXT_CLASS)
     const iconClassName = cn(SIDEBAR_ICON_CLASS, isSelected && SIDEBAR_SELECTED_TEXT_CLASS)
-    const iconContainerClassName = isSelected ? SIDEBAR_ICON_SELECTED_CONTAINER_CLASS : SIDEBAR_ICON_CONTAINER_CLASS
+    const iconContainerClassName = cn(isCompact && " bg-transparent" + isSelected ? SIDEBAR_ICON_SELECTED_CONTAINER_CLASS   : SIDEBAR_ICON_CONTAINER_CLASS)
     const compactLink = isCompact
       ? isExternal
         ? createElement("a", { href, className: itemClassName, target: "_blank", rel: "noopener noreferrer" })

@@ -12,7 +12,7 @@ props { segments, className }: { segments: readonly BarSegment[]; className?: st
 setup
   const total = segments.reduce((sum, segment) => sum + segment.value, 0)
 
-div(className={cn('flex h-1.5 w-full gap-1', className)} role='presentation')
+div(className={cn('flex h-2 w-full gap-1 rounded-full', className)} role='presentation')
   if total === 0
     div(className='h-full flex-1 rounded-full bg-surface-2')
   else
