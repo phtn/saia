@@ -1,4 +1,4 @@
-import { createElement, useState } from 'octane'
+import { createElement, useEffect, useState } from 'octane'
 import { useNavigate } from '@octanejs/tanstack-router'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/PageHeader.btsx'
@@ -20,6 +20,7 @@ import { addMonths, isoDate, peso, rate, toNumber } from '@/lib/insurance/format
 import { saveQuote } from '@/lib/insurance/store'
 import { ENTER_CLASS, fieldLabelClassName, missingFields, rankTextTone, rankTone, stepStates } from '@/lib/forms/step-flow'
 import { useFlowForm } from '@/lib/forms/useFlowForm'
+import { tacDeviceName, useTacLookup, type TacDevice } from '@/lib/insurance/tac'
 import type { FieldDef, FormValues, PolicyStatus, PremiumBreakdown } from '@/lib/insurance/types'
 
 module
@@ -34,6 +35,12 @@ module
     { key: 'other_device', label: 'Brand and model', type: 'text', required: true, placeholder: 'Huawei Pura 70 256GB', aliases: ['brand', 'model name'] },
     { key: 'declared_value', label: 'Declared value (FMV)', type: 'money', required: true, hint: 'Unlisted devices need FMV approval before issuance.', aliases: ['value', 'fair market value', 'price'] }
   ]
+
+  /** Catalog variants for a TAC-database model, matched on brand + model name. */
+  const catalogMatches = (device: TacDevice) => {
+    const name = tacDeviceName(device).toLowerCase()
+    return DEVICE_CATALOG.filter((item) => `${item.brand} ${item.model}`.toLowerCase() === name)
+  }
 
   const IMEI_FIELD: FieldDef = { key: 'imei', label: 'IMEI', type: 'text', required: true, aliases: ['imei number', 'serial number'] }
 
@@ -118,6 +125,17 @@ setup
   const progressWidth = `${Math.round((complete.filter(Boolean).length / complete.length) * 100)}%`
   const statusLabel = canSave ? `Ready · ${peso(result.totalAmountDue)}` : !complete[0] ? 'Needs a valid IMEI' : !complete[1] ? 'Needs a device' : !complete[2] ? issues[0] ?? 'Needs a coverage' : `Needs ${clientMissing[0]?.label.toLowerCase() ?? 'client details'}`
 
+  // Fill the Device step from the TAC database, without overriding a device the agent picked.
+  const lookup = useTacLookup(text(values, 'imei'))
+  const lookupKey = lookup.status === 'found' ? lookup.tac : ''
+  useEffect(() => {
+    if (lookup.status !== 'found' || text(form.values, 'device_id') !== '') return
+    const matches = catalogMatches(lookup.device)
+    if (matches.length === 1) form.setValues({ device_id: deviceLabel(matches[0]) })
+    else if (matches.length === 0) form.setValues({ device_id: 'Other device', other_device: tacDeviceName(lookup.device) })
+    // Several storage variants: leave the choice to the agent.
+  }, [lookupKey])
+
   const onImei = (value: string) => {
     const patch: FormValues = { imei: value }
     const suggested = deviceForTac(value)
@@ -158,7 +176,7 @@ div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
   div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]')
     FlowSheet(title='Cellphone quote' badge={`${complete.filter(Boolean).length} / 4 done`} footer={footer})
       FlowStep(id='step-imei' icon='scan' title='IMEI' state={states[0]} index={0} stepCount={5} meta={imei.valid ? 'verified' : undefined})
-        ImeiScanner(value={text(values, 'imei')} onChange={onImei})
+        ImeiScanner(value={text(values, 'imei')} onChange={onImei} lookup={lookup})
       FlowStep(id='step-device' icon='smartphone' title='Device' state={states[1]} index={1} stepCount={5} meta={device ? peso(fmv) : 'Select a device'})
         div(className='grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2')
           each field in DEVICE_FIELDS key field.key

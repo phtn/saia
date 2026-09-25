@@ -5,6 +5,7 @@ import CtaButton from '@/components/kit/CtaButton.btsx'
 import Chip from '@/components/kit/Chip.btsx'
 import { barcodeScanningSupported, detectImeiBarcodes, formatImei, hasImeiOcrProvider, readImeiFromImage, typeAllocationCode, validateImei, type ImeiReading } from '@/lib/insurance/imei'
 import { ENTER_CLASS, fieldLabelClassName } from '@/lib/forms/step-flow'
+import { tacDeviceName, type TacLookup } from '@/lib/insurance/tac'
 
 module
   export interface ImeiScannerProps {
@@ -12,6 +13,8 @@ module
     onChange: (imei: string) => void
     /** Fires with every reading, including the second IMEI of dual-SIM phones. */
     onReading?: (reading: ImeiReading) => void
+    /** Device lookup for the typed TAC, shown under the field. */
+    lookup?: TacLookup
     disabled?: boolean
   }
 
@@ -19,7 +22,7 @@ module
 
 // Reads an IMEI three ways: live barcode scan of the phone box, a photo of the
 // box or the *#06# screen, or typing it. Ported from lib/js/imeiScanner.js.
-props { value, onChange, onReading, disabled = false }: ImeiScannerProps
+props { value, onChange, onReading, lookup, disabled = false }: ImeiScannerProps
 setup
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState('')
@@ -32,6 +35,9 @@ setup
   const canScanLive = barcodeScanningSupported() && typeof navigator !== 'undefined' && navigator.mediaDevices !== undefined
   const validation = validateImei(value)
   const busy = phase === 'reading'
+  const lookupStatus = lookup?.status ?? 'idle'
+  const found = lookup?.status === 'found' ? lookup : null
+  const unknownTac = lookup?.status === 'unknown' ? lookup.tac : ''
 
   const accept = (reading: ImeiReading) => {
     setError('')
@@ -152,6 +158,18 @@ div(className='flex flex-col gap-3')
           span(className='font-mono text-xs text-muted-foreground') #{`${formatImei(validation.digits)} · TAC ${typeAllocationCode(validation.digits)}`}
       else
         span(className='text-xs text-destructive') #{validation.reason ?? 'Invalid IMEI.'}
+    switch lookupStatus
+      case 'found'
+        div(className={cn('flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2', ENTER_CLASS)})
+          Icon(name='smartphone' size={15} className='m-0 shrink-0 text-muted-foreground')
+          div(className='min-w-0 flex-1')
+            p(className='truncate text-sm') #{found ? tacDeviceName(found.device) : ''}
+            p(className='truncate font-mono text-[10.5px] text-muted-foreground' title={found?.source}) #{[found?.device.detail, found?.device.year, `TAC ${found?.tac ?? ''}`].filter(Boolean).join(' · ')}
+          Chip(label='Model found' tone='info')
+      case 'unknown'
+        p(className='text-xs text-muted-foreground') #{`TAC ${unknownTac} isn’t in the TAC database. Confirm the model with the client.`}
+      case 'loading'
+        p(className='text-xs text-muted-foreground') Looking up the model…
     if alternates.length > 0
       div(className='flex flex-wrap items-center gap-2 text-xs text-muted-foreground')
         span Second SIM:

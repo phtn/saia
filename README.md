@@ -22,6 +22,11 @@ bunx wrangler secret put CMC_API_KEY    # once, and whenever the key rotates
 bun run cf:deploy                       # typecheck, build, wrangler deploy
 ```
 
+- `/api/imei/:imei` validates an IMEI (Luhn) and names the device from its TAC. The data is
+  [MoazEb/tac-database](https://github.com/MoazEb/tac-database) (`data/tac_full.csv`, ~255k TACs through 2025,
+  MIT, see `data/LICENSE-tac-database.txt`). `bun run tac:index` (run automatically by dev/build/typecheck) splits it
+  by TAC prefix into `public/_data/tac/*.json` static shards; the Worker and dev server load only the shard a
+  lookup needs. The app only sends the 8-digit TAC, never a full IMEI. To update the data, replace the CSV.
 - `bun run cf:dev` builds and runs the production Worker locally on :8787 (secrets from `.dev.vars`, gitignored).
 - `bun run cf:types` regenerates `worker/worker-configuration.d.ts` after changing `wrangler.jsonc`.
 - All app data (book, notes, contacts, wallets, portfolio) lives in each browser's storage; nothing is stored server-side yet.

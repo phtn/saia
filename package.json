@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "rsbuild dev",
-    "build": "rsbuild build",
-    "preview": "rsbuild preview",
-    "typecheck": "node scripts/typecheck-btsx.mjs && tsc -p worker/tsconfig.json",
+    "dev": "bun run tac:index && rsbuild dev",
+    "build": "bun run tac:index && rsbuild build",
+    "preview": "bun run tac:index && rsbuild preview",
+    "typecheck": "bun run tac:index && node scripts/typecheck-btsx.mjs && tsc -p worker/tsconfig.json",
     "check": "bun run typecheck && bun run build",
     "cf:types": "wrangler types worker/worker-configuration.d.ts --include-env=false",
     "cf:dev": "bun run build && wrangler dev",
-    "cf:deploy": "bun run check && wrangler deploy"
+    "cf:deploy": "bun run check && wrangler deploy",
+    "tac:index": "node scripts/build-tac-index.mjs"
   },
   "dependencies": {
     "@octanejs/day-picker": "^0.0.22",

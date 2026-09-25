@@ -8,7 +8,12 @@
  * to CoinMarketCap with the `CMC_API_KEY` secret so the key never reaches the
  * browser. Only the endpoints the app uses are allowed, and responses are
  * edge-cached so every visitor shares the same few credits.
+ *
+ * `/api/imei/:imei` validates an IMEI and names the device from its TAC. The TAC
+ * data ships as static shards (scripts/build-tac-index.mjs); a lookup loads only
+ * its shard from the assets binding and keeps it for the life of the isolate.
  */
+import { imeiResponse, shardPath, type ShardLoader, type TacShard } from './tac'
 
 interface Env {
   ASSETS: Fetcher
@@ -47,10 +52,31 @@ async function proxyCmc(request: Request, env: Env, ctx: ExecutionContext): Prom
   return result
 }
 
+const shards = new Map<string, Promise<TacShard | null>>()
+
+function shardLoader(env: Env, origin: string): ShardLoader {
+  return (prefix) => {
+    let shard = shards.get(prefix)
+    if (!shard) {
+      shard = env.ASSETS.fetch(new Request(new URL(shardPath(prefix), origin))).then((response) => (response.ok ? (response.json() as Promise<TacShard>) : null))
+      // A failed load is not remembered, so the next request retries.
+      shard.then((loaded) => loaded ?? shards.delete(prefix), () => shards.delete(prefix))
+      shards.set(prefix, shard)
+    }
+    return shard
+  }
+}
+
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const { pathname } = new URL(request.url)
     if (pathname.startsWith('/api/cmc/')) return proxyCmc(request, env, ctx)
+    if (pathname.startsWith('/api/imei/')) {
+      if (request.method !== 'GET') return json(405, 'Method not allowed.')
+      const { status, body } = await imeiResponse(pathname, shardLoader(env, new URL(request.url).origin))
+      // TAC allocations don't change; let browsers and the edge keep answers for a day.
+      return Response.json(body, { status, headers: { 'Cache-Control': status === 200 ? 'public, max-age=86400' : 'no-store' } })
+    }
     if (pathname.startsWith('/api/')) return json(404, 'Not found.')
     return env.ASSETS.fetch(request)
   }

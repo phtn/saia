@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["./worker-configuration.d.ts"]
   },
-  "include": ["index.ts", "worker-configuration.d.ts"]
+  "include": ["index.ts", "tac.ts", "worker-configuration.d.ts"]
 }
