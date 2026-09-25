@@ -1,0 +1,15 @@
+import { cn } from '@/lib/utils'
+import type { BarDatum } from './BarChart.btsx'
+
+// Horizontal bars with direct labels: name left, value right, one hue.
+props { data, label, className }: { data: readonly BarDatum[]; label: string; className?: string }
+setup const max = Math.max(1, ...data.map((item) => item.value))
+
+ul(className={cn('flex flex-col gap-3', className)} aria-label={label})
+  each item in data key item.label
+    li(className='flex flex-col gap-1.5')
+      div(className='flex items-baseline justify-between gap-3 text-sm')
+        span(className='truncate') #{item.label}
+        span(className='shrink-0 font-mono text-xs text-muted-foreground numeral') #{item.display}
+      div(className='h-1.5 w-full overflow-hidden rounded-full bg-surface-2')
+        div(className='h-full rounded-full bg-accent-brand transition-[width] duration-500' style={{ width: `${(item.value / max) * 100}%` }})

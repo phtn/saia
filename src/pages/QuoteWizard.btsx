@@ -1,0 +1,143 @@
+import { createElement, useState } from 'octane'
+import { Link, useNavigate, useParams } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import { Icon, type IconName } from '@/lib/icons'
+import Shell from '@/components/kit/Shell.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import FlowSheet from '@/components/forms/FlowSheet.btsx'
+import FlowStep from '@/components/forms/FlowStep.btsx'
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import PremiumSummary from '@/components/insurance/PremiumSummary.btsx'
+import { CLIENT_SECTION, POLICY_SECTION, PRODUCTS, isProductId, productFields } from '@/lib/insurance/products'
+import { addMonths, isoDate, peso } from '@/lib/insurance/format'
+import { saveQuote } from '@/lib/insurance/store'
+import { ENTER_CLASS, missingFields, stepStates } from '@/lib/forms/step-flow'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import type { FormSection, FormValues, PolicyStatus, ProductDefinition } from '@/lib/insurance/types'
+
+module
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  const SECTION_ICONS: IconName[] = ['file-text', 'shield', 'wallet']
+
+  function initialValues(product: ProductDefinition): FormValues {
+    const today = new Date()
+    return {
+      ...product.defaults,
+      insurer_name: product.id === 'life' ? 'Sun Life' : 'Bethel General Insurance',
+      inception_from: isoDate(today),
+      inception_to: isoDate(addMonths(today, 12))
+    }
+  }
+
+component WizardFooter
+  props { statusLabel, tone, canSave, onSave }: { statusLabel: string; tone: 'ok' | 'wait'; canSave: boolean; onSave: (status: PolicyStatus) => void }
+  div(className='flex min-w-0 items-center gap-2')
+    span(className={cn('size-1.5 shrink-0 rounded-full', tone === 'ok' ? 'bg-success' : 'bg-muted-foreground')})
+    span(className={cn('truncate text-xs', tone === 'ok' ? 'text-success' : 'text-muted-foreground')}) #{statusLabel}
+  div(className='flex shrink-0 items-center gap-2')
+    CtaButton(label='Save quote' variant='ghost' size='md' disabled={!canSave} onClick={() => onSave('Quote')})
+    CtaButton(label='Submit for issuance' icon='chevrons-right' variant='solid' size='md' disabled={!canSave} onClick={() => onSave('Pending')})
+
+component QuoteFlow
+  props { product }: { product: ProductDefinition }
+  setup
+    const navigate = useNavigate()
+    const [attempted, setAttempted] = useState(false)
+    const sections: FormSection[] = [CLIENT_SECTION, ...product.sections, POLICY_SECTION]
+    const stepId = (section: FormSection) => `step-${section.id}`
+
+    // The form state is created before the premium, which needs the values.
+    let saveRef: (status: PolicyStatus) => string = () => ''
+    const form = useFlowForm({
+      id: `quote-${product.id}`,
+      title: `${product.label} quote`,
+      initial: initialValues(product),
+      fields: productFields(product),
+      nextStepId: () => {
+        const open = sections.find((section) => missingFields(section.fields, form.values).length > 0)
+        return open ? stepId(open) : 'step-create'
+      },
+      onSubmit: () => saveRef('Pending')
+    })
+    const values = form.values
+
+    const missing = sections.map((section) => missingFields(section.fields, values))
+    const complete = missing.map((fields) => fields.length === 0)
+    const premium = product.rate(values)
+    const canSave = complete.every(Boolean) && premium.issues.length === 0 && premium.totalAmountDue > 0
+    const states = stepStates([...complete, canSave])
+    const doneCount = complete.filter(Boolean).length
+    const progressWidth = `${Math.round((doneCount / sections.length) * 100)}%`
+    const errors: Record<string, string> = attempted ? Object.fromEntries(missing.flat().map((field) => [field.key, `${field.label} is required.`])) : {}
+    const firstMissing = missing.flat()[0]
+    const statusLabel = canSave ? `Ready · ${peso(premium.totalAmountDue)}` : firstMissing ? `Needs ${firstMissing.label.toLowerCase()}` : premium.issues[0] ?? 'Complete the steps'
+
+    const save = (status: PolicyStatus): string => {
+      setAttempted(true)
+      if (!canSave) return `Not yet: ${statusLabel.toLowerCase()}.`
+      saveQuote({
+        product: product.id,
+        status,
+        client: { name: text(values, 'client_name'), mobile: text(values, 'insured_mobile_number'), email: text(values, 'insured_email_address'), birthdate: text(values, 'insured_birthday'), address: text(values, 'client_address') },
+        values,
+        premium,
+        risk: product.describeRisk(values),
+        insurer: text(values, 'insurer_name'),
+        policyNumber: '',
+        inceptionFrom: text(values, 'inception_from'),
+        inceptionTo: text(values, 'inception_to'),
+        agent: 'You',
+        notes: ''
+      })
+      navigate({ to: '/policies' })
+      return status === 'Pending' ? 'Submitted for issuance.' : 'Quote saved.'
+    }
+    saveRef = save
+
+    const footer = createElement(WizardFooter, { statusLabel, tone: canSave ? 'ok' : 'wait', canSave, onSave: (status: PolicyStatus) => void save(status) })
+
+  div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]')
+    FlowSheet(title={`${product.label} quote`} badge={`${doneCount} / ${sections.length} done`} footer={footer})
+      each section, index in sections key section.id
+        FlowStep(
+          ~ id={stepId(section)}
+          ~ icon={index === 0 ? 'user' : index === sections.length - 1 ? 'calendar' : index === 1 ? product.icon : SECTION_ICONS[index % SECTION_ICONS.length]}
+          ~ title={section.title}
+          ~ state={states[index]}
+          ~ index={index}
+          ~ stepCount={sections.length + 1}
+          ~ meta={missing[index].length > 0 ? `${missing[index].length} required` : undefined}
+          ~ )
+          FieldGrid(fields={section.fields} values={values} onChange={form.setValue} errors={errors})
+      FlowStep(id='step-create' icon='sparkle' title='Create' state={states[sections.length]} index={sections.length} stepCount={sections.length + 1} isLast)
+        if canSave
+          p(className={cn('font-mono text-xs text-muted-foreground', ENTER_CLASS)}) #{`Save the quote, or submit it to ${text(values, 'insurer_name') || 'the insurer'} for issuance.`}
+        else
+          div(className='h-2 w-full overflow-hidden rounded-full bg-muted')
+            div(className='h-full rounded-full bg-active/60 transition-[width] duration-500 ease-out' style={{ width: progressWidth }})
+    div(className='flex flex-col gap-4 lg:sticky lg:top-4')
+      Shell(title='Premium' icon='receipt')
+        PremiumSummary(premium={premium} caption={product.label})
+      p(className='px-2 text-xs text-muted-foreground') Rates are indicative. Replace them with each insurer’s approved tariff before issuing.
+
+setup
+  const { product: productParam } = useParams({ from: '/quote/$product' })
+  const product = isProductId(productParam) ? PRODUCTS[productParam] : null
+
+div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
+  div(className='mb-5 flex items-center gap-2 text-sm text-muted-foreground')
+    Link(to='/quote' className='inline-flex items-center gap-1 hover:text-foreground')
+      Icon(name='chevron-left' size={15} className='m-0')
+      | New quote
+    if product
+      span #{`/ ${product.label}`}
+  if product
+    QuoteFlow(key={product.id} product={product})
+  else
+    div(className='panel p-8 text-center')
+      p(className='text-sm text-muted-foreground') #{`There is no “${productParam}” product.`}
+      Link(to='/quote' className='mt-3 inline-block text-sm text-accent-brand') Choose a product

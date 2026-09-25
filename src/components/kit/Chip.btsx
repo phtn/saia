@@ -1,0 +1,20 @@
+import { cn } from '@/lib/utils'
+import { TONE_CLASSES, type Tone } from '@/lib/insurance/status'
+
+module
+  export interface ChipProps {
+    label: string | number
+    tone?: Tone
+    /** Mono uppercase, as on status labels. */
+    mono?: boolean
+    dot?: boolean
+    pulse?: boolean
+    className?: string
+  }
+
+props { label, tone = 'neutral', mono = true, dot = false, pulse = false, className }: ChipProps
+
+span(className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-0.5 leading-none', mono ? 'mono-caps text-[10.5px]' : 'text-xs', TONE_CLASSES[tone].chip, className)})
+  if dot
+    span(className={cn('size-1.5 rounded-full', TONE_CLASSES[tone].dot, pulse && 'pulse-dot')})
+  | #{label}

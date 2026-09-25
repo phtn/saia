@@ -1,0 +1,29 @@
+import ListRow from '@/components/kit/ListRow.btsx'
+import { createElement } from 'octane'
+import { PRODUCTS } from '@/lib/insurance/products'
+import { POLICY_STATUS } from '@/lib/insurance/status'
+import { pesoCompact, shortDate } from '@/lib/insurance/format'
+import type { QuoteRecord } from '@/lib/insurance/types'
+
+module
+  export interface QuoteRowProps {
+    quote: QuoteRecord
+    onClick?: () => void
+    /** Show the renewal date instead of the created date. */
+    renewal?: boolean
+  }
+
+props { quote, onClick, renewal = false }: QuoteRowProps
+setup
+  const product = PRODUCTS[quote.product]
+  const status = POLICY_STATUS[quote.status]
+  const amount = createElement('span', { className: 'shrink-0 rounded-md border border-border bg-surface px-2 py-1 font-mono text-xs numeral' }, pesoCompact(quote.premium.totalAmountDue))
+
+ListRow(
+  ~ icon={product.icon}
+  ~ title={`${quote.client.name} — ${quote.risk}`}
+  ~ meta={[product.label, { text: status.label, tone: status.tone }, renewal ? `Renews ${shortDate(quote.inceptionTo)}` : shortDate(quote.createdDate)]}
+  ~ badgeTone={status.pulse ? status.tone : undefined}
+  ~ onClick={onClick}
+  ~ trailing={amount}
+  ~ )

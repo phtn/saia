@@ -1,0 +1,23 @@
+import { cn } from '@/lib/utils'
+
+module
+  export interface ToggleProps {
+    checked: boolean
+    onChange: (checked: boolean) => void
+    label: string
+    id?: string
+    className?: string
+  }
+
+props { checked, onChange, label, id, className }: ToggleProps
+
+button(
+  ~ id={id}
+  ~ type='button'
+  ~ role='switch'
+  ~ aria-checked={checked}
+  ~ aria-label={label}
+  ~ onClick={() => onChange(!checked)}
+  ~ className={cn('relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', checked ? 'bg-success' : 'bg-surface-2 ring-1 ring-border', className)}
+  ~ )
+  span(className={cn('size-5.5 rounded-full bg-white shadow-sm transition-transform duration-200', checked ? 'translate-x-[22px]' : 'translate-x-[3px]')})

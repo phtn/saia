@@ -1,4 +1,11 @@
-import Home from './Home.btsx'
-import Documents from './Documents.btsx'
-import Projects from './Projects.btsx'
-export { Home, Documents, Projects }
+import Overview from './Overview.btsx'
+import QuotePicker from './QuotePicker.btsx'
+import QuoteWizard from './QuoteWizard.btsx'
+import MobileQuote from './MobileQuote.btsx'
+import Policies from './Policies.btsx'
+import Claims from './Claims.btsx'
+import ClaimNew from './ClaimNew.btsx'
+import Analytics from './Analytics.btsx'
+import Tasks from './Tasks.btsx'
+
+export { Overview, QuotePicker, QuoteWizard, MobileQuote, Policies, Claims, ClaimNew, Analytics, Tasks }

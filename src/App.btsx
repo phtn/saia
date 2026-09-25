@@ -3,6 +3,8 @@ import {Topbar, ThemeProvider, Sidebar, SidebarNav, MobileSidebar} from "@/compo
 import { Outlet, useLocation } from "@octanejs/tanstack-router";
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from "@octanejs/resizable-panels";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import AssistantDock from "@/components/assistant/AssistantDock.btsx";
+import { toggleDock } from "@/lib/assistant/dock";
 
 module
   const SEPARATOR_CLASS = "relative w-[0.5px] shrink-0 bg-border/40 outline-none transition-colors after:absolute after:inset-y-0 after:-inset-x-1.5 after:content-[''] hover:bg-primary/40 data-[separator=active]:bg-primary/60 data-[separator=focus]:bg-primary/60"
@@ -24,10 +26,20 @@ setup
   }
 
   useEffect(() => setMobileNavOpen(false), [path])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        toggleDock()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 ThemeProvider
   div(className='hidden md:block sticky top-0 z-40')
     Topbar(toggleSidebar={toggleCompact} isCompact={isCompact})
-  MobileSidebar(open={mobileNavOpen} onOpenChange={setMobileNavOpen})
+  MobileSidebar(open={mobileNavOpen} onOpenChange={setMobileNavOpen} title="SAIA")
     SidebarNav(path={path})
   if isDesktop
     Group(orientation="horizontal" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged} className="h-[calc(100dvh-var(--topbar-height))] overflow-hidden")
@@ -35,8 +47,9 @@ ThemeProvider
         Sidebar(path={path} isCompact={isCompact})
       Separator(aria-label="Resize sidebar" className={SEPARATOR_CLASS})
       Panel(id="content" minSize="30%")
-        main(className='min-w-0 border-t-[0.5px] border-border/40')
+        main(className='h-full min-w-0 overflow-y-auto')
           Outlet
   else
     main(className='min-w-0')
       Outlet
+  AssistantDock

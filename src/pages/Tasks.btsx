@@ -1,0 +1,75 @@
+import { createElement, useState } from 'octane'
+import { cn } from '@/lib/utils'
+import { Icon } from '@/lib/icons'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Panel from '@/components/kit/Panel.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import { useStore, addReminder, toggleReminder } from '@/lib/insurance/store'
+import { reminderText } from '@/lib/insurance/messages'
+import ChannelLinks from '@/components/insurance/ChannelLinks.btsx'
+import { dateTime } from '@/lib/insurance/format'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import type { FieldDef, FormValues, QuoteRecord, ReminderTask } from '@/lib/insurance/types'
+
+module
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+component TaskItem
+  props { item, quote }: { item: ReminderTask; quote: QuoteRecord | null }
+  setup const message = reminderText({ title: item.title, dueDatetime: item.dueDatetime, location: item.location, notes: item.notes })
+  div(className='flex items-start gap-3 border-b border-border py-3.5 last:border-b-0')
+    button(type='button' onClick={() => toggleReminder(item.id)} aria-pressed={item.done} aria-label={item.done ? `Reopen ${item.title}` : `Mark ${item.title} done`} className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition-colors', item.done ? 'border-success bg-success text-white' : 'border-border text-transparent hover:border-success hover:text-success')})
+      Icon(name='check' size={12} className='m-0')
+    div(className='min-w-0 flex-1')
+      p(className={cn('text-[15px] leading-6', item.done && 'text-muted-foreground line-through')}) #{item.title}
+      p(className='mono-caps text-[10.5px] text-muted-foreground') #{[dateTime(item.dueDatetime), item.location, quote?.client.name].filter(Boolean).join(' · ')}
+      if item.notes
+        p(className='mt-1 text-sm text-muted-foreground') #{item.notes}
+      if quote && !item.done
+        div(className='mt-2')
+          ChannelLinks(contact={{ phone: quote.client.mobile, email: quote.client.email }} message={message} compact)
+
+setup
+  const { reminders, quotes } = useStore()
+  const clientOptions = quotes.map((quote) => quote.client.name).filter((name, index, all) => all.indexOf(name) === index)
+  const fields: FieldDef[] = [
+    { key: 'title', label: 'Task', type: 'text', required: true, wide: true, placeholder: 'Call about renewal', aliases: ['reminder', 'what'] },
+    { key: 'due', label: 'Due', type: 'date', required: true, aliases: ['when', 'date'] },
+    { key: 'client', label: 'Client', type: 'select', options: clientOptions, aliases: ['for', 'customer'] },
+    { key: 'location', label: 'Where', type: 'text', aliases: ['location', 'place'] },
+    { key: 'notes', label: 'Notes', type: 'text', aliases: ['note'] }
+  ]
+  let addRef: () => string = () => ''
+  const form = useFlowForm({ id: 'task-new', title: 'New task', initial: {}, fields, nextStepId: () => null, onSubmit: () => addRef() })
+  const [showDone, setShowDone] = useState(false)
+  const add = (): string => {
+    const title = text(form.values, 'title')
+    const due = text(form.values, 'due')
+    if (title === '' || due === '') return 'A task needs a title and a due date.'
+    const quote = quotes.find((item) => item.client.name === text(form.values, 'client'))
+    addReminder({ title, dueDatetime: new Date(`${due}T09:00:00`).toISOString(), location: text(form.values, 'location'), notes: text(form.values, 'notes'), quoteId: quote?.id ?? '' })
+    form.reset({})
+    return 'Task added.'
+  }
+  addRef = add
+  const toggleDone = createElement('button', { type: 'button', onClick: () => setShowDone(!showDone), className: 'eyebrow hover:text-foreground' }, showDone ? 'Hide done' : 'Show done')
+  const list = reminders.filter((item) => showDone || !item.done).sort((a, b) => a.dueDatetime.localeCompare(b.dueDatetime))
+
+div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Follow-ups' title='Tasks' description='Reminders for calls, documents and renewals, sent to the client on their channel.')
+  div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]')
+    Shell
+      Panel(title='Reminders' count={list.length} actions={toggleDone})
+        each item in list key item.id
+          TaskItem(item={item} quote={quotes.find((entry) => entry.id === item.quoteId) ?? null})
+        empty
+          p(className='py-10 text-center text-sm text-muted-foreground') Nothing due.
+    Shell(title='New task' icon='plus')
+      div(className='panel p-5')
+        FieldGrid(fields={fields} values={form.values} onChange={form.setValue})
+        CtaButton(label='Add task' icon='plus' variant='solid' className='mt-5 w-full' onClick={() => void add()})

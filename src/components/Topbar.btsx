@@ -1,39 +1,52 @@
-import { cn } from "@/lib/utils"
-import { Icon } from '@/lib/icons';
-import Button from "./ui/Button.btsx";
-import { ThemeToggle } from "./ThemeProvider.btsx";
+import { Link, useNavigate } from '@octanejs/tanstack-router'
+import { Icon } from '@/lib/icons'
+import { cn } from '@/lib/utils'
+import { ThemeToggle } from './ThemeProvider.btsx'
+import CtaButton from './kit/CtaButton.btsx'
+import { toggleDock, useDock } from '@/lib/assistant/dock'
 
 module
   interface TopbarProps {
-      toggleSidebar: VoidFunction
-      isCompact?: boolean
-    }
-  export interface BrandProps {
-    imageUrl?: string
-    imageAlt?: string
-    className?: string
-    children?: unknown
+    toggleSidebar: VoidFunction
+    isCompact?: boolean
   }
 
-component Brand
-  props { imageUrl, imageAlt = "Web App", className, children }: BrandProps
-  setup
-    const BRAND_CLASS = "flex items-center gap-3"
-    const BRAND_IMAGE_CLASS = "size-16"
+  export { AssistantButton, Wordmark }
 
+component Wordmark
+  props { compact = false }: { compact?: boolean }
+  Link(to='/' aria-label='SAIA home' className='flex items-center gap-2.5')
+    span(className='grid size-8 place-items-center rounded-[10px] bg-invert text-invert-foreground')
+      Icon(name='shield' size={17} className='m-0')
+    if !compact
+      span(className='flex flex-col leading-none')
+        span(className='text-[15px] font-medium tracking-tight') SAIA
+        span(className='eyebrow text-[9.5px]') Agent desk
 
-  div(className={cn(BRAND_CLASS, className)})
-    a(className="flex items-center gap-4" href="/") App
-      div #{children}
-
+component AssistantButton
+  setup const { open } = useDock()
+  button(
+    ~ type='button'
+    ~ onClick={toggleDock}
+    ~ aria-pressed={open}
+    ~ aria-label='Open assistant'
+    ~ title='Assistant (Ctrl+K)'
+    ~ className={cn('inline-flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] transition-colors', open ? 'border-accent-brand/40 bg-accent-brand/10 text-accent-brand' : 'border-border bg-card text-muted-foreground hover:text-foreground')}
+    ~ )
+    Icon(name='mic' size={15} className='m-0')
+    span(className='hidden lg:inline') Assistant
+    kbd(className='hidden rounded border border-border bg-surface px-1 font-mono text-[10px] lg:inline') ⌘K
 
 props { toggleSidebar, isCompact = false }: TopbarProps
-header(className="sticky top-0 z-40 backdrop-blur-3xl w-full")
-  div(className="topbar w-full px-5 flex items-center justify-between gap-4")
-    Brand
-      div(className="hidden md:flex items-center")
-        button(className="size-6 aspect-square place-items-center text-input hover:text-foreground hover:border-input transition" onClick={toggleSidebar} aria-label={isCompact ? "Expand sidebar" : "Compact sidebar"} aria-pressed={isCompact} title={isCompact ? "Expand sidebar" : "Compact sidebar"})
-          Icon(name='sidebar' className="size-4")
-    div(className="flex items-center gap-2")
+setup const navigate = useNavigate()
+
+header(className='sticky top-0 z-40 w-full bg-background/80 backdrop-blur-xl')
+  div(className='topbar flex w-full items-center justify-between gap-4 px-5')
+    div(className='flex items-center gap-4')
+      Wordmark
+      button(className='grid size-7 place-items-center rounded-md text-muted-foreground transition hover:bg-card hover:text-foreground' onClick={toggleSidebar} aria-label={isCompact ? 'Expand sidebar' : 'Compact sidebar'} aria-pressed={isCompact} title={isCompact ? 'Expand sidebar' : 'Compact sidebar'})
+        Icon(name='sidebar' className='m-0 size-4')
+    div(className='flex items-center gap-2')
+      AssistantButton
       ThemeToggle
-      Button(label="Docs" variant='dark' size="sm" type='a' href='https://beast-docs.vercel.app' target="_blank" rel="noopener noreferrer" className="hidden md:flex")
+      CtaButton(label='New quote' icon='plus' variant='accent' size='sm' onClick={() => navigate({ to: '/quote' })})

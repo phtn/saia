@@ -1,0 +1,190 @@
+import { createElement, useState } from 'octane'
+import { useNavigate } from '@octanejs/tanstack-router'
+import { cn } from '@/lib/utils'
+import PageHeader from '@/components/PageHeader.btsx'
+import Shell from '@/components/kit/Shell.btsx'
+import Segmented from '@/components/kit/Segmented.btsx'
+import Toggle from '@/components/kit/Toggle.btsx'
+import CtaButton from '@/components/kit/CtaButton.btsx'
+import FlowSheet from '@/components/forms/FlowSheet.btsx'
+import FlowStep from '@/components/forms/FlowStep.btsx'
+import FieldGrid from '@/components/forms/FieldGrid.btsx'
+import FieldInput from '@/components/forms/FieldInput.btsx'
+import ImeiScanner from '@/components/insurance/ImeiScanner.btsx'
+import PremiumSummary from '@/components/insurance/PremiumSummary.btsx'
+import { CLIENT_SECTION, PRODUCTS } from '@/lib/insurance/products'
+import { COVERAGE_PACKAGES, COVERAGE_TYPES, calculateCellphoneQuote, coveragesForPackage, isEffective, isEligible, validateCellphoneQuote, type CoverageType, type CoveragePackageKey, type PhoneVariant } from '@/lib/insurance/cellphoneQuote'
+import { DEVICE_CATALOG, deviceForTac, deviceLabel } from '@/lib/insurance/devices'
+import { validateImei } from '@/lib/insurance/imei'
+import { addMonths, isoDate, peso, rate, toNumber } from '@/lib/insurance/format'
+import { saveQuote } from '@/lib/insurance/store'
+import { ENTER_CLASS, fieldLabelClassName, missingFields, rankTextTone, rankTone, stepStates } from '@/lib/forms/step-flow'
+import { useFlowForm } from '@/lib/forms/useFlowForm'
+import type { FieldDef, FormValues, PolicyStatus, PremiumBreakdown } from '@/lib/insurance/types'
+
+module
+  const OTHER = 'other'
+
+  const DEVICE_FIELDS: FieldDef[] = [
+    { key: 'device_id', label: 'Device', type: 'select', required: true, options: [...DEVICE_CATALOG.map((device) => deviceLabel(device)), 'Other device'], aliases: ['phone', 'phone model', 'model'] },
+    { key: 'purchase_date', label: 'Purchase date', type: 'date', aliases: ['bought'] }
+  ]
+
+  const OTHER_FIELDS: FieldDef[] = [
+    { key: 'other_device', label: 'Brand and model', type: 'text', required: true, placeholder: 'Huawei Pura 70 256GB', aliases: ['brand', 'model name'] },
+    { key: 'declared_value', label: 'Declared value (FMV)', type: 'money', required: true, hint: 'Unlisted devices need FMV approval before issuance.', aliases: ['value', 'fair market value', 'price'] }
+  ]
+
+  const IMEI_FIELD: FieldDef = { key: 'imei', label: 'IMEI', type: 'text', required: true, aliases: ['imei number', 'serial number'] }
+
+  const text = (values: FormValues, key: string) => {
+    const value = values[key]
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  function selectedDevice(values: FormValues): PhoneVariant | null {
+    const label = text(values, 'device_id')
+    if (label === '') return null
+    if (label === 'Other device') {
+      const name = text(values, 'other_device')
+      const fmv = toNumber(text(values, 'declared_value'))
+      return name === '' ? null : { brand: name, model: '', storage: '', average_fmv: fmv, verification_status: 'Pending' }
+    }
+    return DEVICE_CATALOG.find((device) => deviceLabel(device) === label) ?? null
+  }
+
+component CoverageRow
+  props { coverage, index, included, eligible, premium, custom, checked, onToggle }: { coverage: CoverageType; index: number; included: boolean; eligible: boolean; premium: number | null; custom: boolean; checked: boolean; onToggle: () => void }
+  div(className='flex w-full min-w-0 items-center gap-3 rounded-lg px-1 py-2')
+    span(className={cn('grid size-5 shrink-0 place-items-center rounded-full text-2xs leading-none text-white transition-opacity duration-200', rankTone(index), included ? 'opacity-100' : 'opacity-30')}) #{index + 1}
+    div(className='min-w-0 flex-1')
+      p(className={cn('truncate font-mono text-xs transition-colors', included ? 'text-foreground' : 'text-muted-foreground/60')}) #{coverage.coverage_name}
+      p(className='truncate text-[11px] text-muted-foreground') #{eligible ? `${coverage.description} · ${rate(coverage.coverage_rate)} of FMV` : `Eligible for FMV ${peso(coverage.min_eligible_fmv)}–${peso(coverage.max_eligible_fmv)}`}
+    span(className='hidden h-1.5 w-32 shrink-0 overflow-hidden rounded-full bg-muted sm:block')
+      span(className={cn('block h-full rounded-full transition-all duration-300 ease-out', rankTone(index), included ? 'w-full' : 'w-1/4 opacity-40')})
+    span(className={cn('w-20 shrink-0 text-right font-mono text-2xs tabular-nums sm:w-24', included ? rankTextTone(index) : 'text-muted-foreground/50')}) #{included && premium !== null ? peso(premium) : '—'}
+    if custom
+      Toggle(label={`Include ${coverage.coverage_name}`} checked={checked} onChange={onToggle})
+
+component MobileFooter
+  props { statusLabel, ready, canSave, pendingReview, onSave }: { statusLabel: string; ready: boolean; canSave: boolean; pendingReview: boolean; onSave: (status: PolicyStatus) => void }
+  div(className='flex min-w-0 items-center gap-2')
+    span(className={cn('size-1.5 shrink-0 rounded-full', ready ? 'bg-success' : 'bg-muted-foreground')})
+    span(className={cn('truncate text-xs', ready ? 'text-success' : 'text-muted-foreground')}) #{statusLabel}
+  div(className='flex shrink-0 items-center gap-2')
+    CtaButton(label='Save quote' variant='ghost' disabled={!canSave} onClick={() => onSave('Quote')})
+    CtaButton(label={pendingReview ? 'Send for FMV review' : 'Submit for issuance'} icon='chevrons-right' variant='solid' disabled={!canSave} onClick={() => onSave('Pending')})
+
+setup
+  const navigate = useNavigate()
+  const [pkg, setPkg] = useState<CoveragePackageKey>('all')
+  const [custom, setCustom] = useState<string[]>(['OD', 'TH'])
+  const quoteDate = isoDate()
+
+  let saveRef: (status: PolicyStatus) => string = () => ''
+  const form = useFlowForm({
+    id: 'quote-mobile',
+    title: 'Mobile quote',
+    initial: { device_id: '', imei: '' },
+    fields: [...DEVICE_FIELDS, ...OTHER_FIELDS, IMEI_FIELD, ...CLIENT_SECTION.fields],
+    nextStepId: () => ['step-device', 'step-imei', 'step-coverage', 'step-client', 'step-create'][Math.max(0, complete.indexOf(false))] ?? 'step-create',
+    onSubmit: () => saveRef('Pending')
+  })
+  const values = form.values
+  const isOther = text(values, 'device_id') === 'Other device'
+  const device = selectedDevice(values)
+  const fmv = device?.average_fmv ?? 0
+  const imei = validateImei(text(values, 'imei'))
+  const coverages = coveragesForPackage(pkg, custom, quoteDate)
+  const result = calculateCellphoneQuote({ fmv, selectedCoverages: coverages, quoteDate })
+  // An unlisted device can still be quoted; it goes to FMV review instead of issuance.
+  const issues = validateCellphoneQuote({ phone: device, fmv, selectedCoverages: coverages, quoteDate }).filter((issue) => !(isOther && issue.includes('approved FMV')) && !(device === null && issue.includes('eligible range')))
+  const pendingReview = isOther
+  const premium: PremiumBreakdown = {
+    lines: result.coverageLines.map((line) => ({ label: line.coverage.coverage_name, amount: line.premium, note: line.eligible ? rate(line.rate) : 'not eligible' })),
+    basicPremium: result.totalCoveragePremium,
+    taxes: result.taxLines.map((line) => ({ label: line.tax.tax_name, amount: line.amount, note: rate(line.rate) })),
+    totalTaxes: result.totalTaxes,
+    totalAmountDue: result.totalAmountDue,
+    issues: [...issues, ...(pendingReview ? ['Unlisted device: FMV needs approval before issuance.'] : [])]
+  }
+
+  const deviceMissing = missingFields(isOther ? [...DEVICE_FIELDS, ...OTHER_FIELDS] : DEVICE_FIELDS, values).length + (isOther && fmv <= 0 ? 1 : 0)
+  const clientMissing = missingFields(CLIENT_SECTION.fields, values)
+  const complete = [deviceMissing === 0 && device !== null, imei.valid, coverages.length > 0 && issues.length === 0, clientMissing.length === 0]
+  const canSave = complete.every(Boolean) && result.totalAmountDue > 0
+  const states = stepStates([...complete, canSave])
+  const progressWidth = `${Math.round((complete.filter(Boolean).length / complete.length) * 100)}%`
+  const statusLabel = canSave ? `Ready · ${peso(result.totalAmountDue)}` : !complete[0] ? 'Needs a device' : !complete[1] ? 'Needs a valid IMEI' : !complete[2] ? issues[0] ?? 'Needs a coverage' : `Needs ${clientMissing[0]?.label.toLowerCase() ?? 'client details'}`
+
+  const onImei = (value: string) => {
+    const patch: FormValues = { imei: value }
+    const suggested = deviceForTac(value)
+    if (suggested !== null && text(values, 'device_id') === '') patch.device_id = deviceLabel(suggested)
+    form.setValues(patch)
+  }
+
+  const toggleCoverage = (code: string) => setCustom((current) => (current.includes(code) ? current.filter((item) => item !== code) : [...current, code]))
+
+  const save = (status: PolicyStatus): string => {
+    if (!canSave || device === null) return `Not yet: ${statusLabel.toLowerCase()}.`
+    const label = isOther ? text(values, 'other_device') : deviceLabel(device)
+    const today = new Date()
+    saveQuote({
+      product: 'mobile',
+      status,
+      client: { name: text(values, 'client_name'), mobile: text(values, 'insured_mobile_number'), email: text(values, 'insured_email_address'), birthdate: text(values, 'insured_birthday'), address: text(values, 'client_address') },
+      values: { ...values, vehicle_label: label, imei: imei.digits, declared_value: String(fmv), coverage_package: pkg, coverages: coverages.map((coverage) => coverage.coverage_code).join(',') },
+      premium,
+      risk: label,
+      insurer: 'Bethel General Insurance',
+      policyNumber: '',
+      inceptionFrom: isoDate(today),
+      inceptionTo: isoDate(addMonths(today, 12)),
+      agent: 'You',
+      notes: pendingReview ? 'Unlisted device: FMV pending approval.' : ''
+    })
+    navigate({ to: '/policies' })
+    return 'Mobile quote saved.'
+  }
+  saveRef = save
+
+  const footer = createElement(MobileFooter, { statusLabel, ready: canSave, canSave, pendingReview, onSave: (status: PolicyStatus) => void save(status) })
+  const packageOptions = COVERAGE_PACKAGES.map((item) => ({ value: item.key, label: item.label.replace(' Only', '').replace('Custom Coverage Selection', 'Custom').replace('All Coverages', 'All') }))
+
+div(className='mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8 md:py-8')
+  PageHeader(eyebrow='Mobile insurance' title='Insure a phone' description='Identify the device, read its IMEI, pick the cover, and issue.')
+  div(className='grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]')
+    FlowSheet(title='Cellphone quote' badge={`${complete.filter(Boolean).length} / 4 done`} footer={footer})
+      FlowStep(id='step-device' icon='smartphone' title='Device' state={states[0]} index={0} stepCount={5} meta={device ? peso(fmv) : 'Select a device'})
+        div(className='grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2')
+          each field in DEVICE_FIELDS key field.key
+            FieldInput(field={field} value={values[field.key]} onChange={form.setValue})
+          if isOther
+            each field in OTHER_FIELDS key field.key
+              FieldInput(field={field} value={values[field.key]} onChange={form.setValue})
+      FlowStep(id='step-imei' icon='scan' title='IMEI' state={states[1]} index={1} stepCount={5} meta={imei.valid ? 'verified' : undefined})
+        ImeiScanner(value={text(values, 'imei')} onChange={onImei})
+      FlowStep(id='step-coverage' icon='shield' title='Coverage' state={states[2]} index={2} stepCount={5} meta={`${coverages.length} of ${COVERAGE_TYPES.length} · ${peso(result.totalCoveragePremium)}`})
+        div(className='flex min-w-0 flex-col gap-3')
+          Segmented(label='Coverage package' options={packageOptions} value={pkg} onChange={(value) => setPkg(COVERAGE_PACKAGES.find((item) => item.key === value)?.key ?? 'all')})
+          div(className='grid min-w-0 grid-cols-1')
+            each coverage, index in COVERAGE_TYPES key coverage.id
+              CoverageRow(coverage={coverage} index={index} included={coverages.some((item) => item.id === coverage.id)} eligible={isEligible(coverage, fmv) && isEffective(coverage, quoteDate)} premium={result.coverageLines.find((item) => item.coverage.id === coverage.id)?.premium ?? null} custom={pkg === 'custom'} checked={custom.includes(coverage.coverage_code)} onToggle={() => toggleCoverage(coverage.coverage_code)})
+      FlowStep(id='step-client' icon='user' title='Client' state={states[3]} index={3} stepCount={5} meta={clientMissing.length > 0 ? `${clientMissing.length} required` : undefined})
+        FieldGrid(fields={CLIENT_SECTION.fields} values={values} onChange={form.setValue})
+      FlowStep(id='step-create' icon='sparkle' title='Create' state={states[4]} index={4} stepCount={5} isLast)
+        if canSave
+          p(className={cn('font-mono text-xs text-muted-foreground', ENTER_CLASS)}) #{pendingReview ? 'Queue the quote for FMV approval, then issue.' : 'Save the quote, or submit it for issuance.'}
+        else
+          div(className='h-2 w-full overflow-hidden rounded-full bg-muted')
+            div(className='h-full rounded-full bg-active/60 transition-[width] duration-500 ease-out' style={{ width: progressWidth }})
+    div(className='flex flex-col gap-4 lg:sticky lg:top-4')
+      Shell(title='Premium' icon='receipt')
+        PremiumSummary(premium={premium} caption={PRODUCTS.mobile.label})
+      if device
+        Shell(title='Device' icon='smartphone')
+          div(className='panel p-4')
+            p(className={fieldLabelClassName}) Insured value
+            p(className='numeral mt-1 text-2xl font-medium') #{peso(fmv)}
+            p(className='mt-1 font-mono text-xs text-muted-foreground') #{isOther ? 'FMV pending approval' : `${deviceLabel(device)} · approved FMV`}
