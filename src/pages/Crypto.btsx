@@ -106,7 +106,7 @@ div(className='mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8')
   div(className='mb-4 max-w-md ')
     Segmented(label='Crypto view' options={tabs} value={tab} onChange={setTab})
   if market.error && tab !== 'wallets'
-    p(role='alert' className='mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive-foreground')
+    div(role='alert' className='mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive-foreground')
       Icon(name='alert' size={15} className='m-0 shrink-0')
       | #{market.coins.length > 0 ? `Showing saved prices. ${market.error}` : market.error}
   switch tab

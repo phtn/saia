@@ -19,12 +19,12 @@ module
     // onNavigate: (to: string) => (event: MouseEvent) => void
   }
 
-  const SIDEBAR_CLASS = "hidden md:flex flex-col w-full h-[calc(100dvh-var(--topbar-height))] dark:bg-background/70 border-t-[0.4px] border-sidebar-border overflow-hidden"
+  const SIDEBAR_CLASS = "hidden md:flex flex-col w-full h-[calc(100dvh-var(--topbar-height))] dark:bg-background/90 border-t border-border overflow-hidden"
   const SIDEBAR_ITEM_CLASS = "flex w-full items-center gap-1.75 rounded-[12px] border py-1 pl-1 pr-[8px] text-left transition-all duration-200 ease-out"
   const SIDEBAR_ITEM_SELECTED_CLASS = "bg-[linear-gradient(in_oklab_180deg,oklab(95.2%_0_0)_0%,oklab(91.3%_0_0)_100%)]  shadow-[inset_0_1px_0_#FFFFFF54,0_2.5px_3.5px_-1px_#00000026,0_0_0_1px_#D4D4D4] bg-origin-border dark:bg-origin-border dark:bg-[linear-gradient(in_oklab_180deg,oklab(32%_0_0)_0%,oklab(25%_0_0)_100%)] dark:shadow-none dark:hover:brightness-115 hover:brightness-102 border-border/0"
   const SIDEBAR_ITEM_DEFAULT_CLASS = "border-transparent bg-surface dark:bg-transparent hover:bg-sidebar/70 dark:hover:bg-sidebar"
   const SIDEBAR_ICON_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] bg-transparent"
-  const SIDEBAR_ICON_SELECTED_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] light:bg-background dark:bg-background/50 light:shadow-[0_0_4px_rgba(0,0,0,0.2)]"
+  const SIDEBAR_ICON_SELECTED_CONTAINER_CLASS = "flex size-7.5 shrink-0 items-center justify-center rounded-[8px] light:bg-background light:shadow-[0_0_4px_rgba(0,0,0,0.2)]"
   const SIDEBAR_ICON_CLASS = "m-0 text-muted-foreground/80"
   const SIDEBAR_LABEL_CLASS = "flex-1 font-sans font-medium text-muted-foreground text-sm md:text-[14px] leading-5 tracking-[-0.28px] truncate"
   const SIDEBAR_VALUE_CLASS = "ml-auto shrink-0 text-right font-mono text-2xs leading-none tabular-nums text-muted-foreground"
@@ -72,11 +72,11 @@ component SidebarItem
 
 component SidebarNav
   props { path, className, isCompact = false }: { path: string; className?: string; isCompact?: boolean }
-  div(className={cn("p-3 space-y-6", className)})
+  div(className={cn("px-3 py-1.5 space-y-6", className)})
     each group in navGroups
       div(key={group.title})
         if isCompact
-          div(className="mx-2 mb-2 h-0 bg-border/60" role="presentation")
+          div(className="mx-2 mb-2 h-0 bg-surface" role="presentation")
         else
           div(className="eyebrow px-2 mb-2") #{group.title}
         nav(className="space-y-1" aria-label={group.title})

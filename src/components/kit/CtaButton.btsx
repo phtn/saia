@@ -31,7 +31,7 @@ module
     danger: 'border border-destructive/40 text-destructive-foreground hover:bg-destructive/10'
   }
 
-  const SIZES = { sm: 'h-8 px-3 text-[13px] gap-1.5', md: 'h-10 px-4 text-sm gap-2', lg: 'h-12 px-6 text-[15px] gap-2' } as const
+  const SIZES = { sm: 'h-8 px-3 text-[13px] gap-1.5', md: 'h-10 px-4 text-sm gap-2', lg: 'h-[52px] px-6 text-[15px] gap-2' } as const
 
 // Pill buttons: orange glow for quotes, teal for claims, black slab to commit, red outline to destroy.
 props { label, icon, variant = 'outline', size = 'md', type = 'button', disabled = false, pending = false, onClick, className, 'aria-label': ariaLabel }: CtaButtonProps

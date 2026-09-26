@@ -1,4 +1,4 @@
-import { createElement, useState } from 'octane'
+import { createElement, useState, type OctaneNode } from 'octane'
 import { useNavigate } from '@octanejs/tanstack-router'
 import { Icon } from '@/lib/icons'
 import PageHeader from '@/components/PageHeader.btsx'
@@ -14,22 +14,32 @@ import QuoteRow from '@/components/insurance/QuoteRow.btsx'
 import ClaimRow from '@/components/insurance/ClaimRow.btsx'
 import ProductGrid from '@/components/insurance/ProductGrid.btsx'
 import { useStore, toggleReminder } from '@/lib/insurance/store'
-import { bookKpis, renewalsDue } from '@/lib/insurance/analytics'
+import { bookKpis, renewalsDue, type BookKpis } from '@/lib/insurance/analytics'
 import { dateTime, percent, peso, pesoCompact } from '@/lib/insurance/format'
 import { POLICY_STATUS, TONE_CLASSES, type Tone } from '@/lib/insurance/status'
 import { downloadText, quotesToCsv } from '@/lib/insurance/export'
-import type { PolicyStatus } from '@/lib/insurance/types'
+import type { ClaimRecord, PolicyStatus, QuoteRecord, ReminderTask } from '@/lib/insurance/types'
+import type { UseNavigateResult } from '@tanstack/router-core'
 
 module
   type Tab = 'pipeline' | 'renewals' | 'claims'
-
+  interface OverviewDetailsProps {
+    /** Rendered header actions (built with `createElement(LinkCaption, …)`), passed to `Shell`. */
+    quoteCount: OctaneNode
+    quotes: QuoteRecord[]
+    allTasks: OctaneNode
+    today: ReminderTask[]
+    kpis: BookKpis
+    claims: ClaimRecord[]
+  }
   const TONE_COLORS: Record<Tone, string> = {
     neutral: 'var(--neutral-dot)', warning: 'var(--warning)', info: 'var(--info)', success: 'var(--success)', danger: 'var(--destructive)', accent: 'var(--accent-brand)'
   }
 
   const PIPELINE: PolicyStatus[] = ['Quote', 'Pending', 'Verified', 'Active']
-
   const greeting = (date: Date) => (date.getHours() < 12 ? 'Good morning' : date.getHours() < 18 ? 'Good afternoon' : 'Good evening')
+
+
 
 component OverviewFooter
   props { count, onExport }: { count: number; onExport: () => void }
@@ -45,6 +55,86 @@ component LinkCaption
     button(type='button' onClick={onClick} className='eyebrow hover:text-foreground') #{label}
   else
     span(className='eyebrow') #{label}
+
+component OverviewDetails
+  props { quoteCount, quotes, allTasks, today, kpis, claims }: OverviewDetailsProps
+  div(className='flex flex-col gap-4')
+
+    Shell(title='Quick quote' icon='new' actions={quoteCount} className='bg-sidebar-border/80! border border-border dark:border-lines/60 infinite-lines shadow-xs')
+      div(className=' p-2')
+        ProductGrid(quotes={quotes})
+    Shell(title='Today' icon='calendar' actions={allTasks})
+      div(className='panel px-4 py-1')
+        each item in today key item.id
+          div(className='flex items-start gap-3 border-b border-border py-3 last:border-b-0')
+            button(type='button' onClick={() => toggleReminder(item.id)} aria-label={`Mark ${item.title} done`} className='mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border text-transparent transition-colors hover:border-success hover:text-success')
+              Icon(name='check' size={12} className='m-0')
+            div(className='min-w-0')
+              p(className='text-sm leading-5') #{item.title}
+              p(className='mono-caps mt-0.5 text-[10px] text-muted-foreground') #{dateTime(item.dueDatetime)}
+        empty
+          p(className='py-6 text-center text-sm text-muted-foreground') All caught up.
+    // Shell(title='Collected' icon='wallet')
+    //   div(className='panel p-4')
+    //     p(className='eyebrow') Claims paid
+    //     p(className='numeral mt-1.5 text-[28px] font-medium leading-none') #{peso(kpis.claimsPaid)}
+    //     p(className='mono-caps mt-2 text-[10.5px] text-muted-foreground') #{`${claims.length} claims on file`}
+
+module
+  interface OverviewStatsProps {
+    kpis: BookKpis
+    newThisWeek: number
+    navigate: UseNavigateResult<string>
+    pipeline: QuoteRecord[]
+    quotes: QuoteRecord[]
+  }
+
+component OverviewStats
+  props { kpis, newThisWeek, navigate, pipeline, quotes }: OverviewStatsProps
+  div(className='p-2')
+    div(className='flex flex-wrap items-start gap-5')
+      RingGauge(value={kpis.conversion ?? 0} label={percent(kpis.conversion).replace('.0%', '%')})
+      div(className='min-w-0 flex-1')
+        p(className='eyebrow') Written premium
+        div(className='mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1')
+          span(className='numeral text-[36px] font-medium leading-none md:text-[48px]') #{pesoCompact(kpis.writtenPremium)}
+          span(className='text-sm text-muted-foreground') #{`/ ${kpis.policies} policies`}
+        div(className='mt-3 flex flex-wrap items-center gap-2')
+          Chip(label={`+${newThisWeek}`} tone='success')
+          span(className='mono-caps text-[10.5px] text-muted-foreground') New quotes this week · conversion
+      CtaButton(label='New' icon='plus' variant='accent' className='hidden sm:inline-flex' onClick={() => navigate({ to: '/quote' })})
+    div(className='mt-5 grid grid-cols-2 gap-1.5 lg:grid-cols-4')
+      StatTile(label='Quotes' value={kpis.quotes} caption={`${pipeline.length} open`} captionTone='info')
+      StatTile(label='In force' value={kpis.inForce} caption='Verified · active')
+      StatTile(label='Pending' value={pesoCompact(kpis.pendingPremium)} caption={`${quotes.filter((quote) => quote.status === 'Pending').length} awaiting issue`} captionTone='warning')
+      StatTile(label='Loss ratio' value={percent(kpis.lossRatio)} caption={`${kpis.claimsOpen} open claims`} captionTone={kpis.claimsOpen > 0 ? 'danger' : 'neutral'})
+
+module
+  interface PipelineSectionProps {
+    pipeline: QuoteRecord[]
+    statusCounts: { status: PolicyStatus; count: number }[]
+    openPolicies: () => Promise<void>
+  }
+
+component PipelineSection
+  props { pipeline, statusCounts, openPolicies }: PipelineSectionProps
+  Panel(title='Pipeline' count={pipeline.length} caption='Latest first' statuses={statusCounts} className='')
+    SegmentBar(segments={statusCounts.map((item) => ({ key: item.status, value: item.count, color: TONE_COLORS[POLICY_STATUS[item.status].tone] }))})
+    div(className='mt-3 mb-2 hidden _flex flex-wrap gap-1.5')
+      each item in statusCounts key item.status
+        span(className='inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[13px]')
+          span(className={`size-2 rounded-full ${TONE_CLASSES[POLICY_STATUS[item.status].tone].dot}`})
+          | #{item.status}
+          span(className='font-mono text-[11px] text-muted-foreground numeral') #{item.count}
+    each quote in pipeline.slice(0, 5) key quote.id
+      QuoteRow(quote={quote} onClick={openPolicies})
+    empty
+      p(className='py-6 text-center text-sm text-muted-foreground') No open quotes. Start one from Quick quote.
+    if pipeline.length > 5
+      button(type='button' onClick={openPolicies} className='mono-caps mt-2 flex items-center gap-2 text-[10.5px] text-muted-foreground hover:text-foreground')
+        span(className='grid size-6 place-items-center rounded-full border border-border')
+          Icon(name='plus' size={12} className='m-0')
+        | #{`Show all ${pipeline.length}`}
 
 setup
   const { quotes, claims, reminders } = useStore()
@@ -74,45 +164,13 @@ setup
 div(className='mx-auto w-full max-w-[1400px] px-4 py-6')
   PageHeader(eyebrow={now.toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })} title={greeting(now)} description={`${pipeline.length} quotes in play, ${renewals.length} renewals coming up, ${openClaims.length} open claims.`} className='pb-6')
   div(className='grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]')
-    Shell(title='Book overview' icon='info' actions={scopeChip} footer={footer})
-      div(className='panel p-5')
-        div(className='flex flex-wrap items-start gap-5')
-          RingGauge(value={kpis.conversion ?? 0} label={percent(kpis.conversion).replace('.0%', '%')})
-          div(className='min-w-0 flex-1')
-            p(className='eyebrow') Written premium
-            div(className='mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1')
-              span(className='numeral text-[36px] font-medium leading-none md:text-[48px]') #{pesoCompact(kpis.writtenPremium)}
-              span(className='text-sm text-muted-foreground') #{`/ ${kpis.policies} policies`}
-            div(className='mt-3 flex flex-wrap items-center gap-2')
-              Chip(label={`+${newThisWeek}`} tone='success')
-              span(className='mono-caps text-[10.5px] text-muted-foreground') New quotes this week · conversion
-          CtaButton(label='New' icon='plus' variant='accent' className='hidden sm:inline-flex' onClick={() => navigate({ to: '/quote' })})
-        div(className='mt-5 grid grid-cols-2 gap-1.5 lg:grid-cols-4')
-          StatTile(label='Quotes' value={kpis.quotes} caption={`${pipeline.length} open`} captionTone='info')
-          StatTile(label='In force' value={kpis.inForce} caption='Verified · active')
-          StatTile(label='Pending' value={pesoCompact(kpis.pendingPremium)} caption={`${quotes.filter((quote) => quote.status === 'Pending').length} awaiting issue`} captionTone='warning')
-          StatTile(label='Loss ratio' value={percent(kpis.lossRatio)} caption={`${kpis.claimsOpen} open claims`} captionTone={kpis.claimsOpen > 0 ? 'danger' : 'neutral'})
-      div(className='panel p-2')
+    Shell(icon='info' footer={footer} className='border-none rounded-t-[3rem]')
+      OverviewStats(kpis={kpis} newThisWeek={newThisWeek} navigate={navigate} pipeline={pipeline} quotes={quotes})
+      div(className='')
         Segmented(label='Book view' options={tabs} value={tab} onChange={(value) => setTab(value === 'renewals' ? 'renewals' : value === 'claims' ? 'claims' : 'pipeline')})
       switch tab
         case 'pipeline'
-          Panel(title='Pipeline' count={pipeline.length} caption='Latest first')
-            SegmentBar(segments={statusCounts.map((item) => ({ key: item.status, value: item.count, color: TONE_COLORS[POLICY_STATUS[item.status].tone] }))})
-            div(className='mt-3 mb-2 flex flex-wrap gap-1.5')
-              each item in statusCounts key item.status
-                span(className='inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[13px]')
-                  span(className={`size-2 rounded-full ${TONE_CLASSES[POLICY_STATUS[item.status].tone].dot}`})
-                  | #{item.status}
-                  span(className='font-mono text-[11px] text-muted-foreground numeral') #{item.count}
-            each quote in pipeline.slice(0, 5) key quote.id
-              QuoteRow(quote={quote} onClick={openPolicies})
-            empty
-              p(className='py-6 text-center text-sm text-muted-foreground') No open quotes. Start one from Quick quote.
-            if pipeline.length > 5
-              button(type='button' onClick={openPolicies} className='mono-caps mt-2 flex items-center gap-2 text-[10.5px] text-muted-foreground hover:text-foreground')
-                span(className='grid size-6 place-items-center rounded-full border border-border')
-                  Icon(name='plus' size={12} className='m-0')
-                | #{`Show all ${pipeline.length}`}
+          PipelineSection(pipeline={pipeline} statusCounts={statusCounts} openPolicies={openPolicies})
         case 'renewals'
           Panel(title='Renewals' count={renewals.length} caption='Next 60 days')
             each quote in renewals key quote.id
@@ -125,24 +183,4 @@ div(className='mx-auto w-full max-w-[1400px] px-4 py-6')
               ClaimRow(claim={claim} onClick={() => navigate({ to: '/claims' })})
             empty
               p(className='py-6 text-center text-sm text-muted-foreground') No open claims.
-    div(className='flex flex-col gap-4')
-
-      Shell(title='Quick quote' icon='sparkles' actions={quoteCount} className='bg-sidebar-border/80! border border-border dark:border-lines/60 infinite-lines shadow-xs')
-        div(className=' p-2')
-          ProductGrid(quotes={quotes})
-      Shell(title='Today' icon='calendar' actions={allTasks})
-        div(className='panel px-4 py-1')
-          each item in today key item.id
-            div(className='flex items-start gap-3 border-b border-border py-3 last:border-b-0')
-              button(type='button' onClick={() => toggleReminder(item.id)} aria-label={`Mark ${item.title} done`} className='mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border border-border text-transparent transition-colors hover:border-success hover:text-success')
-                Icon(name='check' size={12} className='m-0')
-              div(className='min-w-0')
-                p(className='text-sm leading-5') #{item.title}
-                p(className='mono-caps mt-0.5 text-[10px] text-muted-foreground') #{dateTime(item.dueDatetime)}
-          empty
-            p(className='py-6 text-center text-sm text-muted-foreground') All caught up.
-      Shell(title='Collected' icon='wallet')
-        div(className='panel p-4')
-          p(className='eyebrow') Claims paid
-          p(className='numeral mt-1.5 text-[28px] font-medium leading-none') #{peso(kpis.claimsPaid)}
-          p(className='mono-caps mt-2 text-[10.5px] text-muted-foreground') #{`${claims.length} claims on file`}
+    OverviewDetails(quoteCount={quoteCount} quotes={quotes} allTasks={allTasks} today={today} kpis={kpis} claims={claims})

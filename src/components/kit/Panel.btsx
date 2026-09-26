@@ -1,7 +1,15 @@
 import type { OctaneNode } from 'octane'
 import { cn } from '@/lib/utils'
+import { PolicyStatus } from '@/lib/insurance/types';
+import { POLICY_STATUS, TONE_CLASSES } from '@/lib/insurance/status';
+
+
 
 module
+  interface Statuses<T = PolicyStatus> {
+     status: T;
+     count: number;
+  }
   export interface PanelProps {
     title?: string
     count?: number | string
@@ -11,9 +19,20 @@ module
     className?: string
     bodyClassName?: string
     children?: OctaneNode
+    statuses?: Statuses[]
   }
 
-props { title, count, caption, actions, className, bodyClassName, children }: PanelProps
+component StatusChecks
+  props { statuses }: { statuses?: Statuses[] }
+  div(className='mt-3 mb-2 flex flex-wrap gap-1.5')
+    if statuses
+      each item in statuses key item.status
+        span(className='inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[13px]')
+          span(className={`size-2 rounded-full ${TONE_CLASSES[POLICY_STATUS[item.status].tone].dot}`})
+          | #{item.status}
+          span(className='font-mono text-[11px] text-muted-foreground numeral') #{item.count}
+
+props { title, count, caption, actions, className, bodyClassName, children, statuses }: PanelProps
 setup const hasHeader = Boolean(title || caption || actions)
 
 div(className={cn('panel p-3 space-y-4', className)})
@@ -24,8 +43,10 @@ div(className={cn('panel p-3 space-y-4', className)})
           h3(className='truncate text-[15px] font-medium tracking-tight') #{title}
         if count !== undefined
           span(className='flex items-center justify-center rounded-full bg-sidebar size-7 font-medium text-sm leading-none text-muted-foreground numeral') #{count}
+      StatusChecks(statuses={statuses})
       div(className='flex shrink-0 items-center gap-3')
         if caption
-          span(className='eyebrow hidden sm:inline') #{caption}
+          span(className='meta hidden sm:inline') #{caption}
         | #{actions}
-  div(className={cn('divide-y divide-border rounded-lg overflow-hidden', hasHeader && 'pt-1.5', bodyClassName)}) #{children}
+
+  div(className={cn('divide-y divide-border divide-dashed rounded-lg overflow-hidden', hasHeader && 'pt-1.5', bodyClassName)}) #{children}

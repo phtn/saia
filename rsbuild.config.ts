@@ -1,9 +1,10 @@
+import { beastDevtools } from '@beastjs/devtools/rsbuild'
 import { defineConfig } from '@rsbuild/core'
 import { pluginTailwindcss } from '@rsbuild/plugin-tailwindcss'
 import { beastOctane } from 'beast-tsrx/rsbuild'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readFileSync } from 'node:fs'
 import { imeiResponse, shardPath, type TacShard } from './worker/tac'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
@@ -55,5 +56,11 @@ export default defineConfig({
         }
       : undefined
   },
-  plugins: [pluginTailwindcss(), ...beastOctane()]
+  plugins: [
+    pluginTailwindcss(),
+    // `profile` compiles Octane's inspection hook in for the DevTools Components panel; dev only.
+    ...beastOctane({ octane: { profile: process.env.NODE_ENV !== 'production' } }),
+    // In-page Beast DevTools overlay (Alt+Shift+D); only runs on the dev server.
+    beastDevtools()
+  ]
 })

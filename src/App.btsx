@@ -51,6 +51,6 @@ ThemeProvider
         Container
           Outlet
   else
-    main(className='min-w-0')
+    main(className='min-w-0 font-sans')
       Outlet
   AssistantDock

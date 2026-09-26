@@ -12,10 +12,11 @@ module
     footer?: OctaneNode
     className?: string
     children?: OctaneNode
+    variant?: 'default' | 'ghost'
   }
 
 // The outer, layered card from the reference designs: a soft shell holding one or more panels.
-props { title, icon, actions, footer, className, children }: ShellProps
+props { title, icon, actions, footer, className, children, variant='default' }: ShellProps
 
 section(className={cn('shell flex flex-col gap-1.5', className)})
   if title || actions

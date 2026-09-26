@@ -172,7 +172,7 @@ component FluidTooltipContent
     }, [children, className, root, showArrow]);
   | #{null}
 
-props { children, orientation = "auto", openDelay = 150, closeDelay = 100, disabled = false, className, }: FluidTooltipGroupProps
+props { children, orientation = "auto", openDelay = 120, closeDelay = 180, disabled = false, className, }: FluidTooltipGroupProps
 setup
   const handle = useMemo(() => T.createHandle<FluidTooltipPayload>(), []);
 
